@@ -1,7 +1,6 @@
 import { supabaseAdmin }                    from "../config/supabase.js";
 import { generateQRToken, generateQRImage } from "../utils/qrGenerator.js";
 import { uploadImage }                      from "../utils/storage.js";
-import { syncEventStatus }                  from "../utils/statusSync.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
@@ -12,23 +11,17 @@ export const generateEntryQRs = async (req, res, next) => {
   try {
     const { eventId } = req.params;
 
-    // Fetch and sync event status (to ensure we have the latest phase based on dates)
-    const { data: eventRow } = await supabaseAdmin
+    const { data: event } = await supabaseAdmin
       .from("events")
-      .select("*")
+      .select("id, title, status, meals")
       .eq("id", eventId)
       .single();
 
-    if (!eventRow) {
+    if (!event) {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
-
-    const event = await syncEventStatus(eventRow);
-
-    // Allow QR generation during shortlisting phase (when teams are shortlisted) or hackathon_active
-    // This allows admin to send QRs as soon as teams are shortlisted, even before confirming
-    if (!["shortlisting", "hackathon_active"].includes(event.status)) {
-      return res.status(400).json({ success: false, message: `QRs can only be generated during shortlisting or hackathon_active phase. Current phase: ${event.status}` });
+    if (event.status !== "hackathon_active") {
+      return res.status(400).json({ success: false, message: "QRs can only be generated after shortlisting is confirmed" });
     }
 
     const meals = event.meals || [];
@@ -163,42 +156,16 @@ export const getMyQR = async (req, res, next) => {
  */
 export const scanEntryQR = async (req, res, next) => {
   try {
-    let { qrToken } = req.body;
+    const { qrToken } = req.body;
     const adminId     = req.user.id;
-
-    if (!qrToken || typeof qrToken !== 'string') {
-      return res.status(400).json({ success: false, message: "QR token is required" });
-    }
-
-    // Trim whitespace
-    qrToken = qrToken.trim();
-
-    // If token looks like JSON (from QR code), try to parse it
-    if (qrToken.startsWith('{') || qrToken.startsWith('"')) {
-      try {
-        const parsed = JSON.parse(qrToken);
-        if (parsed.token) {
-          qrToken = parsed.token;
-        }
-      } catch {
-        // Not valid JSON, use as-is
-      }
-    }
 
     const { data: qr, error } = await supabaseAdmin
       .from("entry_qrs")
-      .select("*, users(id, first_name, last_name, email, college), teams(id, team_name)")
+      .select("*, users!entry_qrs_user_id_fkey(id, first_name, last_name, email, college), teams(id, team_name)")
       .eq("qr_token", qrToken)
       .single();
 
     if (error || !qr) {
-      // Check if it's a "not found" error vs other database error
-      if (error?.code === 'PGRST116' || error?.message?.includes('No rows')) {
-        return res.status(404).json({ 
-          success: false, 
-          message: "Invalid QR code. This token was not found. Make sure QR codes have been generated for shortlisted teams." 
-        });
-      }
       return res.status(404).json({ success: false, message: "Invalid QR code" });
     }
 

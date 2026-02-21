@@ -1,43 +1,45 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
 const BUCKET_MAP = {
-  college_id: "college-ids",
-  selfie:     "selfies",
+  college_id:       "college-ids",
+  selfie:           "selfies",
+  event_banner:     "event-banners",
+  problem_statement:"problem-statements",
 };
 
 /**
  * Uploads a base64 image to Supabase Storage
- * @param {string} base64String - base64 encoded image
- * @param {string} imageType    - "college_id" | "selfie"
- * @param {string} userId       - user's id (used as filename)
- * @returns {Promise<string>}   - public URL of uploaded image
+ * @param {string} base64String - base64 encoded file
+ * @param {string} fileType     - "college_id" | "selfie" | "event_banner" | "problem_statement"
+ * @param {string} ownerId      - user/event id used in file path
+ * @returns {Promise<string>}   - signed URL
  */
-export const uploadImage = async (base64String, imageType, userId) => {
-  const bucket = BUCKET_MAP[imageType];
-  if (!bucket) throw new Error(`Invalid imageType: ${imageType}`);
+export const uploadImage = async (base64String, fileType, ownerId) => {
+  const bucket = BUCKET_MAP[fileType];
+  if (!bucket) throw new Error(`Invalid fileType: ${fileType}`);
 
-  // Strip base64 header if present (e.g. "data:image/jpeg;base64,...")
+  const isPDF = fileType === "problem_statement";
+
+  // Strip base64 header if present
   const base64Data = base64String.includes(",")
     ? base64String.split(",")[1]
     : base64String;
 
-  // Detect mime type from header or default to jpeg
-  const mimeType = base64String.startsWith("data:image/png") ? "image/png" : "image/jpeg";
-  const ext      = mimeType === "image/png" ? "png" : "jpg";
+  const mimeType = isPDF
+    ? "application/pdf"
+    : base64String.startsWith("data:image/png") ? "image/png" : "image/jpeg";
 
+  const ext      = isPDF ? "pdf" : mimeType === "image/png" ? "png" : "jpg";
   const buffer   = Buffer.from(base64Data, "base64");
-  const filePath = `${userId}/${imageType}_${Date.now()}.${ext}`;
+  const filePath = `${ownerId}/${fileType}_${Date.now()}.${ext}`;
 
   const { error } = await supabaseAdmin.storage
     .from(bucket)
-    .upload(filePath, buffer, {
-      contentType:  mimeType,
-      upsert:       true,  // overwrite if re-uploading
-    });
+    .upload(filePath, buffer, { contentType: mimeType, upsert: true });
 
   if (error) throw error;
 
-  // Get signed URL (valid for 10 years since these are private buckets)
+  // Signed URL valid for 10 years
   const { data: signedData, error: signedError } = await supabaseAdmin.storage
     .from(bucket)
     .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 10);
@@ -46,3 +48,7 @@ export const uploadImage = async (base64String, imageType, userId) => {
 
   return signedData.signedUrl;
 };
+
+// Alias for PDF uploads
+export const uploadPDF = (base64String, ownerId) =>
+  uploadImage(base64String, "problem_statement", ownerId);

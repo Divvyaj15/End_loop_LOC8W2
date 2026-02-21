@@ -1,7 +1,9 @@
-import express  from "express";
-import cors     from "cors";
-import dotenv   from "dotenv";
-import authRoutes from "./routes/auth.routes.js";
+import express    from "express";
+import cors       from "cors";
+import dotenv     from "dotenv";
+
+import authRoutes  from "./routes/auth.routes.js";
+import eventRoutes from "./routes/event.routes.js";
 
 dotenv.config();
 
@@ -19,12 +21,14 @@ app.get("/api/health", (_req, res) => {
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.use("/api/auth", authRoutes);
+app.use("/api/auth",   authRoutes);
+app.use("/api/events", eventRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
+
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error(`[ERROR] ${err.message}`);

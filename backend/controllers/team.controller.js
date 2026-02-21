@@ -1,5 +1,6 @@
 import { supabaseAdmin }                from "../config/supabase.js";
 import { TEAM_STATUS, MEMBER_STATUS }   from "../models/team.model.js";
+import { sendTeamInviteEmail }          from "../utils/mailer.js";
 
 // ─── Helper: send notification to a user ─────────────────────────────────────
 const sendNotification = async (userId, title, message, type = "general", data = {}) => {
@@ -50,7 +51,7 @@ export const createTeam = async (req, res, next) => {
     // 1. Check event exists and registration is open
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, status, min_team_size, max_team_size, allow_individual")
+      .select("id, title, status, min_team_size, max_team_size, allow_individual")
       .eq("id", eventId)
       .single();
 
@@ -137,6 +138,15 @@ export const createTeam = async (req, res, next) => {
     });
 
     // 7. Add teammates as pending + send notifications
+    // Get leader name for email
+    const { data: leader } = await supabaseAdmin
+      .from("users")
+      .select("first_name, last_name")
+      .eq("id", leaderId)
+      .single();
+
+    const leaderName = leader ? `${leader.first_name} ${leader.last_name}` : "Team Leader";
+
     for (const member of memberIds) {
       await supabaseAdmin.from("team_members").insert({
         team_id: team.id,
@@ -152,6 +162,19 @@ export const createTeam = async (req, res, next) => {
         "team_invite",
         { teamId: team.id, eventId, teamName }
       );
+
+      // Send email notification to teammate
+      try {
+        await sendTeamInviteEmail(member.email, {
+          inviteeName: member.name,
+          leaderName,
+          teamName,
+          eventName: event.title,
+        });
+      } catch (emailErr) {
+        console.error(`[EMAIL] Failed to send invite to ${member.email}:`, emailErr.message);
+        // Don't fail the request if email fails
+      }
     }
 
     // 8. If no teammates (individual), confirm immediately

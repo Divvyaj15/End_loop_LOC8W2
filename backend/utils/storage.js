@@ -1,24 +1,28 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
 const BUCKET_MAP = {
-  college_id:       "college-ids",
-  selfie:           "selfies",
-  event_banner:     "event-banners",
-  problem_statement:"problem-statements",
+  college_id:        "college-ids",
+  selfie:            "selfies",
+  event_banner:      "event-banners",
+  problem_statement: "problem-statements",
+  ppt_submission:    "ppt-submissions",
+  qr_code:           "qr-codes",
 };
 
+const PDF_TYPES = ["problem_statement", "ppt_submission"];
+
 /**
- * Uploads a base64 image to Supabase Storage
+ * Uploads a base64 file to Supabase Storage
  * @param {string} base64String - base64 encoded file
- * @param {string} fileType     - "college_id" | "selfie" | "event_banner" | "problem_statement"
- * @param {string} ownerId      - user/event id used in file path
+ * @param {string} fileType     - "college_id" | "selfie" | "event_banner" | "problem_statement" | "ppt_submission" | "qr_code"
+ * @param {string} ownerId      - user/event/team id used in file path
  * @returns {Promise<string>}   - signed URL
  */
 export const uploadImage = async (base64String, fileType, ownerId) => {
   const bucket = BUCKET_MAP[fileType];
   if (!bucket) throw new Error(`Invalid fileType: ${fileType}`);
 
-  const isPDF = fileType === "problem_statement";
+  const isPDF = PDF_TYPES.includes(fileType);
 
   // Strip base64 header if present
   const base64Data = base64String.includes(",")
@@ -49,6 +53,9 @@ export const uploadImage = async (base64String, fileType, ownerId) => {
   return signedData.signedUrl;
 };
 
-// Alias for PDF uploads
+// Aliases
 export const uploadPDF = (base64String, ownerId) =>
   uploadImage(base64String, "problem_statement", ownerId);
+
+export const uploadPPT = (base64String, ownerId) =>
+  uploadImage(base64String, "ppt_submission", ownerId);

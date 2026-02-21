@@ -1,11 +1,14 @@
-import express           from "express";
-import cors              from "cors";
-import dotenv            from "dotenv";
+import express            from "express";
+import cors               from "cors";
+import dotenv             from "dotenv";
 
 import authRoutes         from "./routes/auth.routes.js";
 import eventRoutes        from "./routes/event.routes.js";
 import teamRoutes         from "./routes/team.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import submissionRoutes   from "./routes/submission.routes.js";
+import shortlistRoutes    from "./routes/shortlist.routes.js";
+import qrRoutes           from "./routes/qr.routes.js";
 
 dotenv.config();
 
@@ -14,7 +17,7 @@ const PORT = process.env.PORT || 5000;
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
@@ -27,6 +30,9 @@ app.use("/api/auth",          authRoutes);
 app.use("/api/events",        eventRoutes);
 app.use("/api/teams",         teamRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/submissions",   submissionRoutes);
+app.use("/api/shortlist",     shortlistRoutes);
+app.use("/api/qr",            qrRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

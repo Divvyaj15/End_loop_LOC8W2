@@ -1,20 +1,19 @@
-import { supabaseAdmin }              from "../config/supabase.js";
+import { supabaseAdmin }                    from "../config/supabase.js";
 import { generateQRToken, generateQRImage } from "../utils/qrGenerator.js";
-import { uploadImage }                from "../utils/storage.js";
+import { uploadImage }                      from "../utils/storage.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * POST /api/qr/generate/:eventId
- * Admin generates entry QRs for all shortlisted team members
+ * Admin generates entry QRs + food QRs for all shortlisted team members
  */
 export const generateEntryQRs = async (req, res, next) => {
   try {
     const { eventId } = req.params;
 
-    // Check event exists and is in hackathon_active phase
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, status")
+      .select("id, title, status, meals")
       .eq("id", eventId)
       .single();
 
@@ -25,7 +24,8 @@ export const generateEntryQRs = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "QRs can only be generated after shortlisting is confirmed" });
     }
 
-    // Get all shortlisted teams
+    const meals = event.meals || [];
+
     const { data: shortlisted } = await supabaseAdmin
       .from("shortlisted_teams")
       .select("team_id")
@@ -35,10 +35,10 @@ export const generateEntryQRs = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "No shortlisted teams found" });
     }
 
-    let totalGenerated = 0;
+    let totalEntryGenerated = 0;
+    let totalFoodGenerated  = 0;
 
     for (const { team_id } of shortlisted) {
-      // Get all confirmed members of this team
       const { data: members } = await supabaseAdmin
         .from("team_members")
         .select("user_id, users(first_name, last_name, email)")
@@ -56,49 +56,69 @@ export const generateEntryQRs = async (req, res, next) => {
         );
 
       for (const member of members) {
-        // Check if QR already exists for this member
-        const { data: existing } = await supabaseAdmin
+        // ── Entry QR ────────────────────────────────────────────────────────
+        const { data: existingEntry } = await supabaseAdmin
           .from("entry_qrs")
           .select("id")
           .eq("event_id", eventId)
           .eq("user_id", member.user_id)
-          .single();
+          .maybeSingle();
 
-        if (existing) continue; // Skip if already generated
+        if (!existingEntry) {
+          const qr_token     = generateQRToken(member.user_id, eventId);
+          const qrBase64     = await generateQRImage(qr_token);
+          const qr_image_url = await uploadImage(qrBase64, "qr_code", `${eventId}/${member.user_id}`);
 
-        // Generate unique token + QR image
-        const qr_token    = generateQRToken(member.user_id, eventId);
-        const qrBase64    = await generateQRImage(qr_token);
+          await supabaseAdmin.from("entry_qrs").insert({
+            event_id: eventId, team_id, user_id: member.user_id, qr_token, qr_image_url,
+          });
 
-        // Upload QR image to Supabase Storage
-        const qr_image_url = await uploadImage(qrBase64, "qr_code", `${eventId}/${member.user_id}`);
+          // Notify member
+          await supabaseAdmin.from("notifications").insert({
+            user_id: member.user_id,
+            title:   "🎟️ Your Entry QR is Ready!",
+            message: `Your entry QR for "${event.title}" has been generated. Show this QR at the gate on event day.`,
+            type:    "entry_qr",
+            data:    { eventId },
+          });
 
-        // Save to DB
-        await supabaseAdmin.from("entry_qrs").insert({
-          event_id:    eventId,
-          team_id,
-          user_id:     member.user_id,
-          qr_token,
-          qr_image_url,
-        });
+          totalEntryGenerated++;
+        }
 
-        // Send notification to member with QR
-        await supabaseAdmin.from("notifications").insert({
-          user_id: member.user_id,
-          title:   "🎟️ Your Entry QR is Ready!",
-          message: `Your entry QR for "${event.title}" has been generated. Show this QR at the gate on event day.`,
-          type:    "entry_qr",
-          data:    { eventId, qr_token },
-        });
+        // ── Food QRs (one per meal) ──────────────────────────────────────────
+        for (const meal of meals) {
+          const { data: existingFood } = await supabaseAdmin
+            .from("food_qrs")
+            .select("id")
+            .eq("event_id", eventId)
+            .eq("user_id", member.user_id)
+            .eq("meal_type", meal)
+            .maybeSingle();
 
-        totalGenerated++;
+          if (!existingFood) {
+            const food_token     = generateQRToken(`${member.user_id}-${meal}`, eventId);
+            const foodQrBase64   = await generateQRImage(food_token);
+            const food_image_url = await uploadImage(foodQrBase64, "qr_code", `${eventId}/food/${member.user_id}`);
+
+            await supabaseAdmin.from("food_qrs").insert({
+              event_id:    eventId,
+              team_id,
+              user_id:     member.user_id,
+              meal_type:   meal,
+              qr_token:    food_token,
+              qr_image_url: food_image_url,
+            });
+
+            totalFoodGenerated++;
+          }
+        }
       }
     }
 
     res.status(200).json({
       success: true,
-      message: `Entry QRs generated for ${totalGenerated} participants`,
-      data:    { totalGenerated },
+      message: `Entry QRs and food QRs generated successfully`,
+      data:    { totalEntryGenerated, totalFoodGenerated, mealsConfigured: meals },
     });
   } catch (err) {
     next(err);
@@ -108,21 +128,15 @@ export const generateEntryQRs = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * GET /api/qr/my-qr/:eventId
- * Student gets their own entry QR for an event
+ * Student gets their own entry QR
  */
 export const getMyQR = async (req, res, next) => {
   try {
-    const { eventId } = req.params;
-    const userId      = req.user.id;
-
     const { data: qr, error } = await supabaseAdmin
       .from("entry_qrs")
-      .select(`
-        qr_token, qr_image_url, is_used, scanned_at,
-        teams ( team_name )
-      `)
-      .eq("event_id", eventId)
-      .eq("user_id", userId)
+      .select("qr_token, qr_image_url, is_used, scanned_at, teams(team_name)")
+      .eq("event_id", req.params.eventId)
+      .eq("user_id", req.user.id)
       .single();
 
     if (error || !qr) {
@@ -138,87 +152,30 @@ export const getMyQR = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * POST /api/qr/scan
- * Admin scans a member's QR at gate
- * Body: { qrToken }
+ * Admin scans entry QR at gate
  */
 export const scanEntryQR = async (req, res, next) => {
   try {
     const { qrToken } = req.body;
     const adminId     = req.user.id;
 
-    if (!qrToken || typeof qrToken !== "string" || qrToken.trim() === "") {
-      return res.status(400).json({ success: false, message: "QR token is required" });
-    }
-
-    const trimmedToken = qrToken.trim();
-
-    // First, find QR record without joins to avoid join-related errors
-    const { data: qrBase, error: qrError } = await supabaseAdmin
+    const { data: qr, error } = await supabaseAdmin
       .from("entry_qrs")
-      .select("*")
-      .eq("qr_token", trimmedToken)
-      .maybeSingle();
+      .select("*, users(id, first_name, last_name, email, college), teams(id, team_name)")
+      .eq("qr_token", qrToken)
+      .single();
 
-    if (qrError) {
-      console.error("[scanEntryQR] Database error fetching QR:", qrError);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Database error occurred",
-        details: qrError.message 
-      });
-    }
-
-    if (!qrBase) {
+    if (error || !qr) {
       return res.status(404).json({ success: false, message: "Invalid QR code" });
     }
 
-    // Now fetch related user and team data separately
-    const [userResult, teamResult] = await Promise.all([
-      supabaseAdmin
-        .from("users")
-        .select("id, first_name, last_name, email, college")
-        .eq("id", qrBase.user_id)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("teams")
-        .select("id, team_name")
-        .eq("id", qrBase.team_id)
-        .maybeSingle()
-    ]);
-
-    // Combine the data
-    const qr = {
-      ...qrBase,
-      users: userResult.data || null,
-      teams: teamResult.data || null
-    };
-
-    // Check if critical relationships are missing
-    if (!qr.users) {
-      console.error("[scanEntryQR] User not found for user_id:", qrBase.user_id);
-      return res.status(500).json({ 
-        success: false, 
-        message: "User data not found for this QR code" 
-      });
-    }
-
-    if (!qr.teams) {
-      console.error("[scanEntryQR] Team not found for team_id:", qrBase.team_id);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Team data not found for this QR code" 
-      });
-    }
-
-    // Prevent duplicate scan
     if (qr.is_used) {
       return res.status(409).json({
         success:    false,
         message:    "QR already scanned!",
-        scanned_at: qr.scanned_at,
         data: {
-          student:   `${qr.users.first_name} ${qr.users.last_name}`,
-          team:      qr.teams.team_name,
+          student:    `${qr.users.first_name} ${qr.users.last_name}`,
+          team:       qr.teams.team_name,
           scanned_at: qr.scanned_at,
         },
       });
@@ -226,37 +183,26 @@ export const scanEntryQR = async (req, res, next) => {
 
     const now = new Date().toISOString();
 
-    // Mark QR as used
     await supabaseAdmin
       .from("entry_qrs")
       .update({ is_used: true, scanned_at: now, scanned_by: adminId })
-      .eq("qr_token", trimmedToken);
+      .eq("qr_token", qrToken);
 
     // Update team attendance
-    const { data: attendance, error: attendanceError } = await supabaseAdmin
+    const { data: attendance } = await supabaseAdmin
       .from("team_attendance")
       .select("*")
       .eq("event_id", qr.event_id)
       .eq("team_id", qr.team_id)
-      .maybeSingle();
+      .single();
 
-    if (attendanceError) {
-      console.error("[scanEntryQR] Error fetching team attendance:", attendanceError);
-      // Continue anyway - we'll use defaults
-    }
-
-    const newScanned    = (attendance?.members_scanned || 0) + 1;
-    const totalMembers  = attendance?.total_members || 1;
-    const isReported    = newScanned >= totalMembers;
+    const newScanned   = (attendance?.members_scanned || 0) + 1;
+    const totalMembers = attendance?.total_members || 1;
+    const isReported   = newScanned >= totalMembers;
 
     await supabaseAdmin
       .from("team_attendance")
-      .update({
-        members_scanned: newScanned,
-        is_reported:     isReported,
-        reported_at:     isReported ? now : null,
-        updated_at:      now,
-      })
+      .update({ members_scanned: newScanned, is_reported: isReported, reported_at: isReported ? now : null, updated_at: now })
       .eq("event_id", qr.event_id)
       .eq("team_id",  qr.team_id);
 
@@ -284,7 +230,7 @@ export const scanEntryQR = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * GET /api/qr/attendance/:eventId
- * Admin gets full attendance report for an event
+ * Admin gets full attendance report
  */
 export const getAttendance = async (req, res, next) => {
   try {
@@ -292,8 +238,7 @@ export const getAttendance = async (req, res, next) => {
       .from("team_attendance")
       .select(`
         members_scanned, total_members, is_reported, reported_at,
-        teams (
-          id, team_name,
+        teams ( id, team_name,
           team_members ( status, users ( first_name, last_name, email ) )
         )
       `)

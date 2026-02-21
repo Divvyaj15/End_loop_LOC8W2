@@ -174,6 +174,7 @@ export const updateEvent = async (req, res, next) => {
       "min_team_size", "max_team_size", "allow_individual",
       "mode", "venue", "first_prize", "second_prize", "third_prize",
       "entry_fee", "is_free", "rules", "status",
+      "meals", "ppt_submission_deadline", "teams_to_shortlist",
     ];
 
     const updates = { updated_at: new Date().toISOString() };

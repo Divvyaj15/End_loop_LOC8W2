@@ -255,10 +255,11 @@ export const getAttendance = async (req, res, next) => {
 
     const totalTeams    = data.length;
     const reportedTeams = data.filter((t) => t.is_reported).length;
+    const entriesScanned = (data || []).reduce((sum, t) => sum + (t.members_scanned || 0), 0);
 
     res.status(200).json({
       success: true,
-      summary: { totalTeams, reportedTeams, pendingTeams: totalTeams - reportedTeams },
+      summary: { totalTeams, reportedTeams, pendingTeams: totalTeams - reportedTeams, entriesScanned },
       data,
     });
   } catch (err) {

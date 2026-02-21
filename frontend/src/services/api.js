@@ -96,6 +96,9 @@ export const qrAPI = {
 // Food QR API
 export const foodQrAPI = {
   getFoodReport: (eventId) => api.get(`/food-qr/report/${eventId}`),
+  lookupFood: (qrToken) => api.post('/food-qr/lookup', { qrToken }),
+  scanFood: (qrToken) => api.post('/food-qr/scan', { qrToken }),
+  getFoodQRsForUser: (eventId, userId) => api.get(`/food-qr/event/${eventId}/user/${userId}`),
 };
 
 // Judges API (admin + judge)

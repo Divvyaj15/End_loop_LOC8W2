@@ -16,9 +16,13 @@ export default function EventDashboard() {
   
   const [event, setEvent] = useState(null);
   const [showScanModal, setShowScanModal] = useState(false);
+  const [scanMode, setScanMode] = useState('entry'); // 'entry' | 'food'
   const [eventNotStartedMessage, setEventNotStartedMessage] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [foodLookup, setFoodLookup] = useState(null);
+  const [foodPendingToken, setFoodPendingToken] = useState(null);
+  const [fulfilling, setFulfilling] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -51,8 +55,8 @@ export default function EventDashboard() {
     fetchEventData();
   }, [eventId]);
 
-  const fetchEventData = async () => {
-    setLoading(true);
+  const fetchEventData = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       // Fetch all data in parallel
       const [
@@ -104,14 +108,14 @@ export default function EventDashboard() {
         pptSubmissions: submissionsData.length,
       });
 
-      // Set QR stats
-      const totalScanned = attendanceData.reportedTeams || 0;
+      // Set QR stats (entriesScanned = total individual scans; meals from food report)
+      const entriesScanned = attendanceData.entriesScanned ?? attendanceData.reportedTeams ?? 0;
       const mealsConsumed = Object.values(foodData).reduce(
-        (sum, meal) => sum + (meal.consumed || 0),
+        (sum, meal) => sum + (meal?.consumed || 0),
         0
       );
       setQrStats({
-        entriesScanned: totalScanned,
+        entriesScanned,
         mealsDistributed: mealsConsumed,
       });
 
@@ -120,7 +124,7 @@ export default function EventDashboard() {
       const lunches = foodData.lunch?.consumed || 0;
       const dinners = foodData.dinner?.consumed || 0;
       setDayStats({
-        attendance: totalScanned,
+        attendance: entriesScanned,
         breakfastsClaimed: breakfasts,
         lunchesClaimed: lunches,
         dinnersClaimed: dinners,
@@ -161,6 +165,8 @@ export default function EventDashboard() {
 
   const closeScanModal = useCallback(() => {
     setShowScanModal(false);
+    setFoodLookup(null);
+    setFoodPendingToken(null);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -174,16 +180,28 @@ export default function EventDashboard() {
     lastScannedTokenRef.current = { token, at: now };
     setScanning(true);
     setScanResult(null);
+    setFoodLookup(null);
+    setFoodPendingToken(null);
     try {
-      const res = await qrAPI.scanEntry(token);
-      const data = res.data?.data;
-      setScanResult({
-        success: true,
-        message: res.data?.message || 'Entry recorded!',
-        student: data?.student,
-        team: data?.team,
-      });
-      fetchEventData();
+      if (scanMode === 'entry') {
+        const res = await qrAPI.scanEntry(token);
+        const data = res.data?.data;
+        setScanResult({
+          success: true,
+          message: res.data?.message || 'Entry recorded!',
+          student: data?.student,
+          team: data?.team,
+        });
+        fetchEventData(false);
+      } else {
+        const res = await foodQrAPI.lookupFood(token);
+        if (res.data?.success && res.data?.data) {
+          setFoodLookup(res.data.data);
+          setFoodPendingToken(token);
+        } else {
+          setScanResult({ success: false, message: res.data?.message || 'Invalid meal QR code' });
+        }
+      }
     } catch (err) {
       setScanResult({
         success: false,
@@ -192,7 +210,33 @@ export default function EventDashboard() {
     } finally {
       setScanning(false);
     }
-  }, [eventId, scanning]);
+  }, [eventId, scanning, scanMode]);
+
+  const handleFulfilMeal = useCallback(async () => {
+    if (!foodPendingToken || fulfilling) return;
+    setFulfilling(true);
+    setScanResult(null);
+    try {
+      const res = await foodQrAPI.scanFood(foodPendingToken);
+      setScanResult({
+        success: true,
+        message: res.data?.message || 'Meal fulfilled!',
+        student: res.data?.data?.student,
+        team: res.data?.data?.team,
+        meal: res.data?.data?.meal,
+      });
+      setFoodLookup(null);
+      setFoodPendingToken(null);
+      await fetchEventData(false);
+    } catch (err) {
+      setScanResult({
+        success: false,
+        message: err.response?.data?.message || 'Failed to fulfil meal',
+      });
+    } finally {
+      setFulfilling(false);
+    }
+  }, [foodPendingToken, fulfilling]);
 
   useEffect(() => {
     if (!showScanModal || !event || !videoRef.current) return;
@@ -639,14 +683,18 @@ export default function EventDashboard() {
 
       {/* Scan QR modal – camera + result */}
       {showScanModal && event && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95" role="dialog" aria-modal="true" aria-label="Scan entry QR">
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/95" role="dialog" aria-modal="true" aria-label="Scan QR">
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/50">
-            <h2 className="text-lg font-semibold text-white">Scan entry QR</h2>
-            <button type="button" onClick={closeScanModal} className="p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
+            <h2 className="text-lg font-semibold text-white">{scanMode === 'entry' ? 'Scan entry QR' : 'Scan meal QR'}</h2>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => { setScanMode('entry'); setFoodLookup(null); setFoodPendingToken(null); setScanResult(null); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${scanMode === 'entry' ? 'bg-cyan-500/90 text-white' : 'bg-white/10 text-white/70 hover:text-white'}`}>Entry</button>
+              <button type="button" onClick={() => { setScanMode('food'); setFoodLookup(null); setFoodPendingToken(null); setScanResult(null); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${scanMode === 'food' ? 'bg-purple-500/90 text-white' : 'bg-white/10 text-white/70 hover:text-white'}`}>Meal</button>
+              <button type="button" onClick={closeScanModal} className="p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white ml-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0">
+          <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0 overflow-y-auto">
             <div className="relative w-full max-w-md aspect-square rounded-2xl overflow-hidden border-2 border-cyan-400/50 bg-black">
               <video ref={videoRef} muted playsInline className="absolute inset-0 w-full h-full object-cover" />
               {!window.BarcodeDetector && (
@@ -655,11 +703,11 @@ export default function EventDashboard() {
                 </div>
               )}
             </div>
-            <p className="text-white/60 text-sm mt-4">Point the camera at the participant’s entry QR code</p>
+            <p className="text-white/60 text-sm mt-4">{scanMode === 'entry' ? "Point the camera at the participant's entry QR code" : "Point the camera at the participant's meal QR (breakfast/lunch/dinner)"}</p>
             {scanResult && (
               <div className={`mt-4 w-full max-w-md p-4 rounded-xl text-sm ${scanResult.success ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-100' : 'bg-red-500/20 border border-red-400/50 text-red-100'}`}>
                 {scanResult.message}
-                {scanResult.student && <p className="mt-1 font-medium">{scanResult.student} · {scanResult.team}</p>}
+                {scanResult.student && <p className="mt-1 font-medium">{scanResult.student} · {scanResult.team}{scanResult.meal ? ` · ${scanResult.meal}` : ''}</p>}
               </div>
             )}
             <div className="mt-4 w-full max-w-md">
@@ -677,6 +725,27 @@ export default function EventDashboard() {
                   {scanning ? '…' : 'Submit'}
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Meal lookup popup – Fulfil */}
+      {showScanModal && foodLookup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setFoodLookup(null); setFoodPendingToken(null); }}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-white/10">
+              <h3 className="text-lg font-semibold text-white">Meal: {foodLookup.meal}</h3>
+              <p className="text-xs text-white/50 mt-0.5">Fulfil to mark as claimed</p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div><p className="text-xs text-white/50 uppercase tracking-wider">Name</p><p className="text-white font-medium">{foodLookup.student}</p></div>
+              <div><p className="text-xs text-white/50 uppercase tracking-wider">Team</p><p className="text-cyan-300 font-medium">{foodLookup.team}</p></div>
+              <div><p className="text-xs text-white/50 uppercase tracking-wider">Meal</p><p className="text-purple-300 font-medium capitalize">{foodLookup.meal}</p></div>
+            </div>
+            <div className="p-5 pt-0 flex gap-2">
+              <button type="button" onClick={() => { setFoodLookup(null); setFoodPendingToken(null); }} className="flex-1 px-4 py-2.5 rounded-xl border border-white/30 text-white text-sm font-medium hover:bg-white/5">Cancel</button>
+              <button type="button" onClick={handleFulfilMeal} disabled={fulfilling} className="flex-1 px-4 py-2.5 rounded-xl bg-purple-500 text-white text-sm font-semibold hover:bg-purple-400 disabled:opacity-50">{fulfilling ? 'Fulfilling…' : 'Fulfil'}</button>
             </div>
           </div>
         </div>

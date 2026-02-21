@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "../config/supabase.js";
-import { sendOTPEmail } from "../utils/mailer.js";
-import { encrypt } from "../utils/encryption.js";
+import { sendOTPEmail }  from "../utils/mailer.js";
+import { encrypt }       from "../utils/encryption.js";
+import { uploadImage }   from "../utils/storage.js";
 
 const generateOTP   = () => Math.floor(100000 + Math.random() * 900000).toString();
 const generateToken = (user) => Buffer.from(
@@ -10,29 +11,32 @@ const generateToken = (user) => Buffer.from(
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * POST /api/auth/register
+ * POST /api/auth/register-basic
+ * STEP 1 — Save basic details + send OTP
  * Body: { firstName, lastName, dob, phone, aadhaarNumber, email, password }
- * Returns token immediately so student can upload images right after
  */
-export const register = async (req, res, next) => {
+export const registerBasic = async (req, res, next) => {
   try {
     const { firstName, lastName, dob, phone, aadhaarNumber, email, password } = req.body;
 
     // Check if email already exists
     const { data: existing } = await supabaseAdmin
       .from("users")
-      .select("id")
+      .select("id, otp_verified")
       .eq("email", email)
       .single();
 
-    if (existing) {
+    if (existing && existing.otp_verified) {
       return res.status(409).json({ success: false, message: "Email already registered" });
     }
 
-    // Hash password
+    // If user exists but OTP not verified, delete and re-register (they may be retrying)
+    if (existing && !existing.otp_verified) {
+      await supabaseAdmin.from("users").delete().eq("id", existing.id);
+    }
+
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Insert user
     const { data: user, error } = await supabaseAdmin
       .from("users")
       .insert({
@@ -56,22 +60,13 @@ export const register = async (req, res, next) => {
     await supabaseAdmin.from("otps").insert({ email, otp, expires_at: expiresAt });
     await sendOTPEmail(email, otp);
 
-    // Generate token so student can immediately upload images
+    // Return temp token to use in step 2
     const token = generateToken(user);
 
     res.status(201).json({
       success: true,
-      message: "Registered successfully! OTP sent to your email.",
-      data: {
-        token,
-        user: {
-          id:        user.id,
-          email:     user.email,
-          role:      user.role,
-          firstName: user.first_name,
-          lastName:  user.last_name,
-        },
-      },
+      message: "Basic details saved! OTP sent to your email.",
+      data:    { token, email },
     });
   } catch (err) {
     next(err);
@@ -81,6 +76,7 @@ export const register = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * POST /api/auth/verify-otp
+ * STEP 1.5 — Verify OTP after basic details
  * Body: { email, otp }
  */
 export const verifyOTP = async (req, res, next) => {
@@ -106,21 +102,59 @@ export const verifyOTP = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Incorrect OTP" });
     }
 
-    // Mark OTP used
     await supabaseAdmin.from("otps").update({ used: true }).eq("id", record.id);
-
-    // Update user otp_verified
-    const { data: user } = await supabaseAdmin
+    await supabaseAdmin
       .from("users")
       .update({ otp_verified: true, updated_at: new Date().toISOString() })
-      .eq("email", email)
-      .select()
-      .single();
+      .eq("email", email);
 
     res.status(200).json({
-      success:    true,
-      message:    "Email verified successfully!",
-      isVerified: user.face_verified,
+      success: true,
+      message: "Email verified! Please upload your documents.",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * POST /api/auth/register-complete
+ * STEP 2 — Upload college ID + selfie (after OTP verified)
+ * Protected with token from step 1
+ * Body: { collegeIdBase64, selfieBase64 }
+ */
+export const registerComplete = async (req, res, next) => {
+  try {
+    const { collegeIdBase64, selfieBase64 } = req.body;
+    const userId = req.user.id;
+
+    // Ensure OTP was verified before allowing document upload
+    if (!req.user.otp_verified) {
+      return res.status(403).json({ success: false, message: "Please verify your email OTP first" });
+    }
+
+    if (!collegeIdBase64) {
+      return res.status(400).json({ success: false, message: "College ID image is required" });
+    }
+    if (!selfieBase64) {
+      return res.status(400).json({ success: false, message: "Live selfie is required" });
+    }
+
+    // Upload both images
+    const college_id_url = await uploadImage(collegeIdBase64, "college_id", userId);
+    const selfie_url     = await uploadImage(selfieBase64,    "selfie",     userId);
+
+    // Save URLs
+    await supabaseAdmin
+      .from("users")
+      .update({ college_id_url, selfie_url, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Documents uploaded! Proceed to face verification.",
+      data:    { college_id_url, selfie_url },
     });
   } catch (err) {
     next(err);
@@ -161,7 +195,6 @@ export const resendOTP = async (req, res, next) => {
 /**
  * POST /api/auth/login
  * Body: { email, password }
- * Role auto-detected from DB
  */
 export const login = async (req, res, next) => {
   try {
@@ -182,27 +215,15 @@ export const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    // Students must complete all required steps before login
     if (user.role === "student") {
       if (!user.otp_verified) {
         return res.status(403).json({
-          success:     false,
-          message:     "Please verify your email via OTP before logging in",
-          requiresOTP: true,
+          success: false, message: "Please verify your email via OTP first", requiresOTP: true,
         });
       }
-      if (!user.college_id_url) {
+      if (!user.college_id_url || !user.selfie_url) {
         return res.status(403).json({
-          success:       false,
-          message:       "Please upload your college ID card before logging in",
-          requiresImage: "college_id",
-        });
-      }
-      if (!user.selfie_url) {
-        return res.status(403).json({
-          success:       false,
-          message:       "Please upload your selfie before logging in",
-          requiresImage: "selfie",
+          success: false, message: "Please complete document upload to continue", requiresDocs: true,
         });
       }
     }
@@ -232,8 +253,7 @@ export const login = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * GET /api/auth/me
- * Protected
+ * GET /api/auth/me — Protected
  */
 export const getMe = async (req, res, next) => {
   try {

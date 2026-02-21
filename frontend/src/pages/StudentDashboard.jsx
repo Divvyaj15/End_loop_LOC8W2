@@ -119,7 +119,7 @@ export default function StudentDashboard() {
             END_LOOP
           </span>
         </div>
-        <nav className="flex-1 py-6 space-y-1 px-2 lg:px-3">
+        <nav className="flex-1 py-6 space-y-1 px-2 lg:px-3 overflow-y-auto">
           {SIDEBAR_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -137,6 +137,20 @@ export default function StudentDashboard() {
             </NavLink>
           ))}
         </nav>
+        <div className="pt-4 border-t border-white/10 px-2 lg:px-3 pb-4">
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              navigate('/login');
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/15 text-white/50 hover:bg-white/5 hover:text-white text-sm transition-colors"
+          >
+            <span className="text-lg w-8 flex items-center justify-center">⎋</span>
+            <span className="hidden lg:inline">Log out</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main */}
@@ -156,6 +170,17 @@ export default function StudentDashboard() {
             <span className="text-white/90 font-medium">End_Loop&apos;s WorkSpace</span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                navigate('/login');
+              }}
+              className="px-3 py-1.5 rounded-lg border border-white/20 text-white/70 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
+            >
+              Log out
+            </button>
             <span className="text-sm text-white/80 hidden sm:inline">
               Hello, {user.first_name || user.email?.split('@')[0] || 'Student'}
             </span>

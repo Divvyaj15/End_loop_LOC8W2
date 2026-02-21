@@ -138,7 +138,20 @@ export default function StudentEventDetail() {
           </svg>
           Back to Dashboard
         </button>
-        <span className="text-cyan-400 font-semibold text-sm">END_LOOP</span>
+        <div className="flex items-center gap-3">
+          <span className="text-cyan-400 font-semibold text-sm">END_LOOP</span>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              navigate('/login');
+            }}
+            className="px-3 py-1.5 rounded-lg border border-white/20 text-white/70 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
+          >
+            Log out
+          </button>
+        </div>
       </header>
 
       <main className="max-w-3xl mx-auto p-4 lg:p-8">

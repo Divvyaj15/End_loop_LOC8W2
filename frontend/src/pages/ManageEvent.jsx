@@ -274,13 +274,23 @@ export default function ManageEvent() {
             </span>
             <span className="hidden lg:inline">PPT Submissions</span>
           </button>
-          <div className="pt-4 border-t border-white/10">
+          <div className="pt-4 border-t border-white/10 space-y-1">
             <button
               onClick={() => navigate(`/admin/events/${eventId}`)}
               className="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2 rounded-xl border border-white/15 text-white/50 hover:bg-white/5 hover:text-white text-xs transition-colors"
             >
               <span>←</span>
               <span className="hidden lg:inline">Event Dashboard</span>
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                navigate('/login');
+              }}
+              className="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2 rounded-xl border border-white/15 text-white/50 hover:bg-white/5 hover:text-white text-xs transition-colors"
+            >
+              <span className="hidden lg:inline">Log out</span>
             </button>
           </div>
         </nav>

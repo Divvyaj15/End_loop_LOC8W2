@@ -44,13 +44,13 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API
+// Auth API — matches backend: register-basic → verify-otp → register-complete; login; resend-otp; me
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   registerBasic: (data) => api.post('/auth/register-basic', data),
   verifyOTP: (email, otp) => api.post('/auth/verify-otp', { email, otp }),
-  // registerComplete now expects tempToken in the body (no auth header)
   registerComplete: (data) => api.post('/auth/register-complete', data),
+  resendOTP: (email) => api.post('/auth/resend-otp', { email }),
   getMe: () => api.get('/auth/me'),
 };
 

@@ -351,10 +351,23 @@ export default function AdminDashboard() {
                 Cancel
               </button>
             )}
-            <span className="hidden lg:flex flex-col items-end text-xs text-white/70">
-              <span className="font-medium">Admin</span>
-              <span className="text-white/50">ACM Committee</span>
-            </span>
+            <div className="hidden lg:flex items-center gap-3">
+              <span className="flex flex-col items-end text-xs text-white/70">
+                <span className="font-medium">Admin</span>
+                <span className="text-white/50">ACM Committee</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  navigate('/login');
+                }}
+                className="px-3 py-1.5 rounded-lg border border-white/20 text-white/70 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Log out
+              </button>
+            </div>
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 border border-white/20" />
           </div>
         </header>

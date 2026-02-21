@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
+
+function logout(navigate) {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  navigate('/login');
+}
 import { authAPI } from '../services/api';
 
 const SIDEBAR_ITEMS = [
@@ -70,6 +76,16 @@ export default function StudentProfile() {
             </NavLink>
           ))}
         </nav>
+        <div className="pt-4 border-t border-white/10 px-2 lg:px-3 pb-4">
+          <button
+            type="button"
+            onClick={() => logout(navigate)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/15 text-white/50 hover:bg-white/5 hover:text-white text-sm transition-colors"
+          >
+            <span className="text-lg w-8 flex items-center justify-center">⎋</span>
+            <span className="hidden lg:inline">Log out</span>
+          </button>
+        </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto p-4 lg:p-8">

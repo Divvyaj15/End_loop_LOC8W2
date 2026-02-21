@@ -326,6 +326,17 @@ export default function EventDashboard() {
               Scan QRs
             </button>
             <div className="hidden sm:flex items-center gap-3 pl-3 border-l border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  navigate('/login');
+                }}
+                className="px-3 py-1.5 rounded-lg border border-white/20 text-white/70 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Log out
+              </button>
               <div className="text-right">
                 <p className="text-xs font-medium text-white/90">Admin</p>
                 <p className="text-xs text-white/50 truncate max-w-[120px]">{event.committee_name || '—'}</p>

@@ -54,8 +54,9 @@ export const authAPI = {
   getMe: () => api.get('/auth/me'),
 };
 
-// Events API (admin)
+// Events API
 export const eventAPI = {
+  getEvents: (params) => api.get('/events', { params }),
   createEvent: (data) => api.post('/events', data),
   getAdminEvents: () => api.get('/events/admin/all'),
   getEventById: (eventId) => api.get(`/events/${eventId}`),
@@ -63,6 +64,37 @@ export const eventAPI = {
   deleteEvent: (eventId) => api.delete(`/events/${eventId}`),
   uploadProblemStatement: (eventId, pdfBase64) =>
     api.post(`/events/${eventId}/problem-statement`, { pdfBase64 }),
+};
+
+// Teams API
+export const teamAPI = {
+  getMyTeams: () => api.get('/teams/my-teams'),
+  getTeamsByEvent: (eventId) => api.get(`/teams/event/${eventId}`),
+  createTeam: (data) => api.post('/teams', data),
+};
+
+// Submissions API
+export const submissionAPI = {
+  getSubmissionsByEvent: (eventId) => api.get(`/submissions/event/${eventId}`),
+};
+
+// Shortlist API
+export const shortlistAPI = {
+  getShortlistedTeams: (eventId) => api.get(`/shortlist/${eventId}`),
+  getLeaderboard: (eventId) => api.get(`/shortlist/leaderboard/${eventId}`),
+  confirmShortlist: (eventId) => api.post(`/shortlist/confirm/${eventId}`),
+};
+
+// QR API
+export const qrAPI = {
+  getAttendance: (eventId) => api.get(`/qr/attendance/${eventId}`),
+  generateEntryQRs: (eventId) => api.post(`/qr/generate/${eventId}`),
+  scanEntry: (qrToken) => api.post('/qr/scan', { qrToken }),
+};
+
+// Food QR API
+export const foodQrAPI = {
+  getFoodReport: (eventId) => api.get(`/food-qr/report/${eventId}`),
 };
 
 export default api;

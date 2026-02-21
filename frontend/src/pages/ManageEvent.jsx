@@ -1,219 +1,239 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventAPI } from '../services/api';
-
-const CATEGORY_OPTIONS = [
-  { value: 'web_dev', label: 'Web Dev' },
-  { value: 'ai_ml', label: 'AI/ML' },
-  { value: 'app_dev', label: 'App Dev' },
-  { value: 'blockchain', label: 'Blockchain' },
-];
-
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'registration_open', label: 'Registration Open' },
-  { value: 'registration_closed', label: 'Registration Closed' },
-  { value: 'hackathon_active', label: 'Hackathon Active' },
-  { value: 'completed', label: 'Completed' },
-];
+import { eventAPI, teamAPI, shortlistAPI, qrAPI, submissionAPI } from '../services/api';
 
 export default function ManageEvent() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+
   const [event, setEvent] = useState(null);
+  const [registeredTeams, setRegisteredTeams] = useState([]);
+  const [shortlistedTeams, setShortlistedTeams] = useState([]);
+  const [grandFinaleTeams, setGrandFinaleTeams] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [form, setForm] = useState({
+  const [activeSection, setActiveSection] = useState('manage'); // 'manage' | 'ppt'
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsDeleting, setSettingsDeleting] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
     title: '',
     description: '',
-    category: '',
     committeeName: '',
-    mode: 'offline',
-    venue: '',
     startDate: '',
     endDate: '',
     registrationDeadline: '',
     eventStartTime: '',
     eventEndTime: '',
-    minTeamSize: 1,
-    maxTeamSize: 4,
-    allowIndividual: true,
-    isFree: true,
-    entryFee: 0,
-    firstPrize: '',
-    secondPrize: '',
-    thirdPrize: '',
-    status: 'draft',
-    rules: [],
+    pptSubmissionDeadline: '',
+    status: '',
+    venue: '',
+    teamsToShortlist: 5,
   });
 
+  const openSettingsModal = () => {
+    if (!event) return;
+    setSettingsForm({
+      title: event.title || '',
+      description: event.description || '',
+      committeeName: event.committee_name || '',
+      startDate: event.start_date ? event.start_date.slice(0, 10) : '',
+      endDate: event.end_date ? event.end_date.slice(0, 10) : '',
+      registrationDeadline: event.registration_deadline ? event.registration_deadline.slice(0, 10) : '',
+      eventStartTime: event.event_start_time ? String(event.event_start_time).slice(0, 5) : '',
+      eventEndTime: event.event_end_time ? String(event.event_end_time).slice(0, 5) : '',
+      pptSubmissionDeadline: event.ppt_submission_deadline ? event.ppt_submission_deadline.slice(0, 10) : '',
+      status: event.status || 'registration_open',
+      venue: event.venue || '',
+      teamsToShortlist: event.teams_to_shortlist ?? 5,
+    });
+    setShowSettingsModal(true);
+    setError('');
+    setSuccess('');
+  };
+
   useEffect(() => {
-    fetchEvent();
+    fetchEventData();
   }, [eventId]);
 
-  const fetchEvent = async () => {
+  const fetchEventData = async () => {
     setLoading(true);
     try {
-      const response = await eventAPI.getEventById(eventId);
-      if (response.data.success) {
-        const eventData = response.data.data;
-        setEvent(eventData);
-        setForm({
-          title: eventData.title || '',
-          description: eventData.description || '',
-          category: eventData.category || '',
-          committeeName: eventData.committee_name || '',
-          mode: eventData.mode || 'offline',
-          venue: eventData.venue || '',
-          startDate: eventData.start_date || '',
-          endDate: eventData.end_date || '',
-          registrationDeadline: eventData.registration_deadline || '',
-          eventStartTime: eventData.event_start_time || '',
-          eventEndTime: eventData.event_end_time || '',
-          minTeamSize: eventData.min_team_size || 1,
-          maxTeamSize: eventData.max_team_size || 4,
-          allowIndividual: eventData.allow_individual ?? true,
-          isFree: eventData.is_free ?? true,
-          entryFee: eventData.entry_fee || 0,
-          firstPrize: eventData.first_prize || '',
-          secondPrize: eventData.second_prize || '',
-          thirdPrize: eventData.third_prize || '',
-          status: eventData.status || 'draft',
-          rules: eventData.rules || [],
-        });
+      const [eventRes, teamsRes, shortlistedRes, submissionsRes] = await Promise.all([
+        eventAPI.getEventById(eventId),
+        teamAPI.getTeamsByEvent(eventId),
+        shortlistAPI.getShortlistedTeams(eventId),
+        submissionAPI.getSubmissionsByEvent(eventId),
+      ]);
+
+      if (eventRes.data.success) {
+        setEvent(eventRes.data.data);
+      }
+
+      if (teamsRes.data.success) {
+        const teams = teamsRes.data.data || [];
+        setRegisteredTeams(teams);
+        
+        // Get scores for teams
+        const leaderboardRes = await shortlistAPI.getLeaderboard(eventId);
+        if (leaderboardRes.data.success) {
+          const scores = leaderboardRes.data.data || [];
+          const teamsWithScores = teams.map((team) => {
+            const scoreData = scores.find((s) => s.teams?.id === team.id);
+            return {
+              ...team,
+              score: scoreData?.total_score || null,
+            };
+          });
+          setRegisteredTeams(teamsWithScores);
+        }
+      }
+
+      if (shortlistedRes.data.success) {
+        const shortlisted = shortlistedRes.data.data || [];
+        setShortlistedTeams(shortlisted);
+        // Grand Finale Teams are the same as shortlisted for now
+        setGrandFinaleTeams(shortlisted);
+      }
+
+      if (submissionsRes.data.success) {
+        setSubmissions(submissionsRes.data.data || []);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load event');
+      console.error('Failed to fetch event data:', err);
+      setError('Failed to load event data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-    setError('');
-    setSuccess('');
-  };
-
-  const handleModeToggle = (mode) => {
-    setForm((prev) => ({
-      ...prev,
-      mode,
-      venue: mode === 'offline' ? prev.venue : '',
-    }));
-  };
-
-  const handleIsFreeToggle = (isFree) => {
-    setForm((prev) => ({
-      ...prev,
-      isFree,
-      entryFee: isFree ? 0 : prev.entryFee,
-    }));
-  };
-
-  const handleRuleChange = (index, value) => {
-    setForm((prev) => {
-      const rules = [...prev.rules];
-      rules[index] = value;
-      return { ...prev, rules };
-    });
-  };
-
-  const addRule = () => {
-    setForm((prev) => ({ ...prev, rules: [...prev.rules, ''] }));
-  };
-
-  const removeRule = (index) => {
-    setForm((prev) => {
-      const rules = prev.rules.filter((_, i) => i !== index);
-      return { ...prev, rules };
-    });
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setUpdating(true);
-
-    try {
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        category: form.category,
-        committeeName: form.committeeName.trim(),
-        startDate: form.startDate,
-        endDate: form.endDate,
-        registrationDeadline: form.registrationDeadline,
-        eventStartTime: form.eventStartTime,
-        eventEndTime: form.eventEndTime,
-        minTeamSize: Number(form.minTeamSize) || 1,
-        maxTeamSize: Number(form.maxTeamSize) || 4,
-        allowIndividual: form.allowIndividual,
-        mode: form.mode,
-        venue: form.mode === 'offline' ? form.venue.trim() : null,
-        firstPrize: form.firstPrize ? Number(form.firstPrize) : 0,
-        secondPrize: form.secondPrize ? Number(form.secondPrize) : 0,
-        thirdPrize: form.thirdPrize ? Number(form.thirdPrize) : 0,
-        entryFee: form.isFree ? 0 : Number(form.entryFee || 0),
-        isFree: form.isFree,
-        rules: form.rules.filter((r) => r.trim() !== ''),
-        status: form.status,
-      };
-
-      await eventAPI.updateEvent(eventId, payload);
-      setSuccess('Event updated successfully!');
-      setTimeout(() => {
-        navigate('/admin/dashboard');
-      }, 1500);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update event');
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+  const handleShortlistTeams = async () => {
+    if (!window.confirm('Are you sure you want to shortlist teams? This will select the top teams based on scores.')) {
       return;
     }
 
-    setUpdating(true);
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await shortlistAPI.confirmShortlist(eventId);
+      if (response.data.success) {
+        setSuccess(response.data.message || 'Teams shortlisted successfully!');
+        await fetchEventData(); // Refresh data
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to shortlist teams');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendQRs = async () => {
+    if (!window.confirm('Generate and send QR codes to all shortlisted teams?')) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await qrAPI.generateEntryQRs(eventId);
+      if (response.data.success) {
+        setSuccess(response.data.message || 'QR codes generated and sent successfully!');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to generate QR codes');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const getTeamMembers = (team) => {
+    if (!team.team_members || !Array.isArray(team.team_members)) return 'N/A';
+    const members = team.team_members
+      .filter((m) => m.status === 'accepted' || m.status === 'leader')
+      .map((m) => {
+        const user = m.users;
+        return user ? `${user.first_name} ${user.last_name}` : 'Unknown';
+      });
+    return members.join(' - ') || 'N/A';
+  };
+
+  const timeAgo = (dateString) => {
+    if (!dateString) return '—';
+    const d = new Date(dateString);
+    const sec = Math.floor((Date.now() - d) / 1000);
+    if (sec < 60) return 'Just now';
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+    if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+    return `${Math.floor(sec / 86400)}d ago`;
+  };
+
+  const handleSettingsChange = (field, value) => {
+    setSettingsForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSettingsSave = async (e) => {
+    e.preventDefault();
+    setSettingsSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const payload = {
+        title: settingsForm.title || undefined,
+        description: settingsForm.description || undefined,
+        committeeName: settingsForm.committeeName || undefined,
+        startDate: settingsForm.startDate || undefined,
+        endDate: settingsForm.endDate || undefined,
+        registrationDeadline: settingsForm.registrationDeadline || undefined,
+        eventStartTime: settingsForm.eventStartTime || undefined,
+        eventEndTime: settingsForm.eventEndTime || undefined,
+        pptSubmissionDeadline: settingsForm.pptSubmissionDeadline || undefined,
+        status: settingsForm.status || undefined,
+        venue: settingsForm.venue || undefined,
+        teamsToShortlist: settingsForm.teamsToShortlist != null ? Number(settingsForm.teamsToShortlist) : undefined,
+      };
+      const res = await eventAPI.updateEvent(eventId, payload);
+      if (res.data?.success) {
+        setEvent(res.data.data);
+        setSuccess('Event settings saved.');
+        setShowSettingsModal(false);
+        await fetchEventData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save settings');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!window.confirm('Delete this event? This cannot be undone. Only draft events can be deleted; published events must be set to draft first.')) {
+      return;
+    }
+    setSettingsDeleting(true);
+    setError('');
     try {
       await eventAPI.deleteEvent(eventId);
+      setSuccess('Event deleted.');
+      setShowSettingsModal(false);
       navigate('/admin/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete event');
-      setUpdating(false);
+      setError(err.response?.data?.message || 'Could not delete event. Only draft events can be deleted.');
+    } finally {
+      setSettingsDeleting(false);
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex items-center justify-center">
-        <div className="text-white/60">Loading event...</div>
-      </div>
-    );
-  }
-
-  if (!event) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-white/60 mb-4">Event not found</div>
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="px-6 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 hover:bg-cyan-500/30"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+        <div className="text-white/60">Loading...</div>
       </div>
     );
   }
@@ -229,14 +249,40 @@ export default function ManageEvent() {
         </div>
         <nav className="flex-1 py-6 space-y-2 px-2 lg:px-4">
           <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-cyan-500/15 border border-cyan-400/50 text-cyan-200 text-sm"
+            onClick={() => setActiveSection('manage')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+              activeSection === 'manage'
+                ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-200'
+                : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             </span>
-            <span className="hidden lg:inline">Back to Dashboard</span>
+            <span className="hidden lg:inline">Manage Event</span>
           </button>
+          <button
+            onClick={() => setActiveSection('ppt')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+              activeSection === 'ppt'
+                ? 'bg-purple-500/20 border border-purple-400/50 text-purple-200'
+                : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+            </span>
+            <span className="hidden lg:inline">PPT Submissions</span>
+          </button>
+          <div className="pt-4 border-t border-white/10">
+            <button
+              onClick={() => navigate(`/admin/events/${eventId}`)}
+              className="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2 rounded-xl border border-white/15 text-white/50 hover:bg-white/5 hover:text-white text-xs transition-colors"
+            >
+              <span>←</span>
+              <span className="hidden lg:inline">Event Dashboard</span>
+            </button>
+          </div>
         </nav>
       </aside>
 
@@ -244,447 +290,314 @@ export default function ManageEvent() {
       <main className="flex-1 flex flex-col">
         {/* Top bar */}
         <header className="h-20 px-6 lg:px-10 flex items-center justify-between border-b border-white/10 bg-black/30 backdrop-blur-xl">
-          <div>
-            <h1 className="text-xl lg:text-2xl font-semibold">Manage Event</h1>
-            <p className="text-xs lg:text-sm text-white/60">{event.title}</p>
+          <div className="flex-1">
+            <h1 className="text-xl lg:text-2xl font-semibold mb-1">ManageEvent</h1>
+            {event && (
+              <p className="text-xs lg:text-sm text-white/60">{event.title}</p>
+            )}
           </div>
           <div className="flex items-center gap-4">
-            <span className="hidden lg:flex flex-col items-end text-xs text-white/70">
-              <span className="font-medium">Admin</span>
-              <span className="text-white/50">ACM Committee</span>
-            </span>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 border border-white/20" />
+            <button
+              onClick={openSettingsModal}
+              className="px-4 py-2 rounded-xl border border-white/30 text-sm font-medium hover:bg-white/5 transition-colors"
+            >
+              Event Settings
+            </button>
           </div>
         </header>
 
         {/* Content */}
         <section className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <form onSubmit={handleUpdate} className="max-w-6xl mx-auto space-y-6">
-            {error && (
-              <div className="bg-red-500/15 border border-red-400/60 text-red-100 text-sm px-4 py-3 rounded-xl">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="bg-emerald-500/15 border border-emerald-400/60 text-emerald-100 text-sm px-4 py-3 rounded-xl">
-                {success}
-              </div>
-            )}
+          {error && (
+            <div className="mb-4 bg-red-500/15 border border-red-400/60 text-red-100 text-sm px-4 py-3 rounded-xl">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 bg-emerald-500/15 border border-emerald-400/60 text-emerald-100 text-sm px-4 py-3 rounded-xl">
+              {success}
+            </div>
+          )}
 
-            <div className="grid grid-cols-1 xl:grid-cols-[2fr,1.5fr,1.5fr] gap-6">
-              {/* Event Details */}
+          {activeSection === 'manage' && (
+            <div className="max-w-7xl mx-auto space-y-6">
+              {/* Registered Teams */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h2 className="text-lg font-semibold mb-4">Event Details</h2>
-
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/70">Event Title *</label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={form.title}
-                      onChange={handleChange}
-                      className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/70">Committee *</label>
-                    <input
-                      type="text"
-                      name="committeeName"
-                      value={form.committeeName}
-                      onChange={handleChange}
-                      className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/70">Event Category *</label>
-                    <div className="flex flex-wrap gap-2">
-                      {CATEGORY_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({ ...prev, category: opt.value }))
-                          }
-                          className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-                            form.category === opt.value
-                              ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.5)]'
-                              : 'bg-black/40 border-white/15 text-white/70 hover:border-cyan-400/60'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/70">Status *</label>
-                    <select
-                      name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                    >
-                      {STATUS_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/70">Mode *</label>
-                    <div className="inline-flex rounded-xl bg-black/40 border border-white/15 p-1">
-                      <button
-                        type="button"
-                        onClick={() => handleModeToggle('online')}
-                        className={`px-4 py-1.5 text-xs rounded-lg ${
-                          form.mode === 'online'
-                            ? 'bg-cyan-500/80 text-black font-semibold'
-                            : 'text-white/70'
-                        }`}
-                      >
-                        Online
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleModeToggle('offline')}
-                        className={`px-4 py-1.5 text-xs rounded-lg ${
-                          form.mode === 'offline'
-                            ? 'bg-cyan-500/80 text-black font-semibold'
-                            : 'text-white/70'
-                        }`}
-                      >
-                        Offline
-                      </button>
-                    </div>
-                  </div>
-
-                  {form.mode === 'offline' && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">
-                        Venue (if Offline) *
-                      </label>
-                      <input
-                        type="text"
-                        name="venue"
-                        value={form.venue}
-                        onChange={handleChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/70">
-                      Event Description *
-                    </label>
-                    <textarea
-                      name="description"
-                      value={form.description}
-                      onChange={handleChange}
-                      rows={4}
-                      className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60 resize-none"
-                      required
-                    />
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Registered Teams</h2>
+                <button
+                  onClick={handleShortlistTeams}
+                  disabled={actionLoading || registeredTeams.length === 0}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-xs font-semibold shadow-[0_4px_20px_rgba(34,211,238,0.4)] hover:from-cyan-300 hover:to-cyan-500 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {actionLoading ? 'Processing...' : 'Shortlist Teams'}
+                </button>
               </div>
-
-              {/* Date & Time + Team & Rules */}
-              <div className="space-y-6">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h2 className="text-lg font-semibold mb-4">Date &amp; Time</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">Start Date *</label>
-                      <input
-                        type="date"
-                        name="startDate"
-                        value={form.startDate}
-                        onChange={handleChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">End Date *</label>
-                      <input
-                        type="date"
-                        name="endDate"
-                        value={form.endDate}
-                        onChange={handleChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">
-                        Registration Deadline *
-                      </label>
-                      <input
-                        type="date"
-                        name="registrationDeadline"
-                        value={form.registrationDeadline}
-                        onChange={handleChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">Start Time *</label>
-                      <input
-                        type="time"
-                        name="eventStartTime"
-                        value={form.eventStartTime}
-                        onChange={handleChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">End Time *</label>
-                      <input
-                        type="time"
-                        name="eventEndTime"
-                        value={form.eventEndTime}
-                        onChange={handleChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        required
-                      />
-                    </div>
-                  </div>
+              {registeredTeams.length === 0 ? (
+                <div className="text-white/40 text-sm py-8 text-center">
+                  No registered teams yet
                 </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h2 className="text-lg font-semibold mb-4">Team &amp; Rules</h2>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">Team Size</label>
+              ) : (
+                <div className="space-y-2">
+                  {registeredTeams.map((team) => (
+                    <div
+                      key={team.id}
+                      className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                    >
                       <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min="1"
-                          name="minTeamSize"
-                          value={form.minTeamSize}
-                          onChange={handleChange}
-                          className="w-20 bg-black/40 border border-white/15 rounded-xl px-2.5 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        />
-                        <span className="text-xs text-white/60">to</span>
-                        <input
-                          type="number"
-                          min={form.minTeamSize || 1}
-                          name="maxTeamSize"
-                          value={form.maxTeamSize}
-                          onChange={handleChange}
-                          className="w-20 bg-black/40 border border-white/15 rounded-xl px-2.5 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                        />
-                        <span className="text-xs text-white/60">members</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">Entry Fee</label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min="0"
-                          name="entryFee"
-                          value={form.isFree ? 0 : form.entryFee}
-                          onChange={handleChange}
-                          disabled={form.isFree}
-                          className="w-28 bg-black/40 border border-white/15 rounded-xl px-2.5 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60 disabled:opacity-60"
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-white/70">Free</span>
-                          <button
-                            type="button"
-                            onClick={() => handleIsFreeToggle(!form.isFree)}
-                            className={`w-10 h-5 rounded-full flex items-center px-0.5 ${
-                              form.isFree ? 'bg-cyan-500' : 'bg-white/20'
-                            }`}
-                          >
-                            <span
-                              className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                                form.isFree ? 'translate-x-5' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
+                        <div className="text-sm font-semibold text-white">
+                          {team.team_name}
+                        </div>
+                        <div className="text-xs text-white/60">
+                          {getTeamMembers(team)}
                         </div>
                       </div>
+                      <div className="text-xs text-white/70">
+                        Score: {team.score !== null ? team.score : 'N/A'}
+                      </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
+              )}
+              </div>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <input
-                      id="allowIndividual"
-                      type="checkbox"
-                      name="allowIndividual"
-                      checked={form.allowIndividual}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded border border-white/30 bg-black/60 accent-cyan-400"
-                    />
-                    <label
-                      htmlFor="allowIndividual"
-                      className="text-xs text-white/80"
-                    >
-                      Allow Individual Participation
-                    </label>
-                  </div>
+              {/* Shortlisted Teams */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Shortlisted Teams</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleShortlistTeams}
+                    disabled={actionLoading}
+                    className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                  >
+                    shortlist
+                  </button>
+                  <button
+                    onClick={handleSendQRs}
+                    disabled={actionLoading || shortlistedTeams.length === 0}
+                    className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                  >
+                    Send QRs
+                  </button>
+                </div>
+              </div>
+              {shortlistedTeams.length === 0 ? (
+                <div className="text-white/40 text-sm py-8 text-center">
+                  No shortlisted teams yet. Click "Shortlist Teams" to shortlist registered teams.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {shortlistedTeams.map((item) => {
+                    const team = item.teams || {};
+                    return (
+                      <div
+                        key={item.team_id || team.id}
+                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm font-semibold text-white">
+                            {team.team_name || `Team ${item.rank || ''}`}
+                          </div>
+                          <div className="text-xs text-white/60">
+                            {getTeamMembers(team)}
+                          </div>
+                        </div>
+                        <div className="text-xs text-white/70">
+                          Score: {item.total_score !== undefined ? item.total_score : 'N/A'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              </div>
 
+              {/* Grand Finale Teams */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Grand Finale Teams:</h2>
+              </div>
+              {grandFinaleTeams.length === 0 ? (
+                <div className="text-white/40 text-sm py-8 text-center">
+                  No grand finale teams yet
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {grandFinaleTeams.map((item) => {
+                    const team = item.teams || {};
+                    return (
+                      <div
+                        key={item.team_id || team.id}
+                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                      >
+                        <div className="text-sm font-semibold text-white">
+                          {team.team_name || `Team ${item.rank || ''}`}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'ppt' && (
+            <div className="max-w-5xl mx-auto space-y-6">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  📄 PPT Submissions
+                </h2>
+                {submissions.length === 0 ? (
+                  <div className="text-white/40 text-sm py-8 text-center">
+                    No submissions received yet
+                  </div>
+                ) : (
                   <div className="space-y-2">
-                    <label className="text-xs text-white/70">Rules</label>
-                    <div className="space-y-1.5">
-                      {form.rules.map((rule, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 text-xs text-white/80"
-                        >
-                          <span className="w-4 text-center text-white/40">
-                            {index + 1}.
-                          </span>
-                          <input
-                            type="text"
-                            value={rule}
-                            onChange={(e) =>
-                              handleRuleChange(index, e.target.value)
-                            }
-                            className="flex-1 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                          />
-                          {form.rules.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeRule(index)}
-                              className="text-white/40 hover:text-red-400 px-1"
-                            >
-                              ✕
-                            </button>
-                          )}
+                    {submissions.map((sub) => (
+                      <button
+                        key={sub.id}
+                        className="w-full text-left flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/10 hover:border-cyan-400/40 hover:bg-black/60 transition-colors"
+                      >
+                        <div>
+                          <p className="font-semibold text-white">
+                            {sub.teams?.team_name || 'Team'}
+                          </p>
+                          <p className="text-xs text-white/50 mt-0.5">
+                            Submitted {timeAgo(sub.submitted_at)}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addRule}
-                      className="mt-1 text-[11px] text-cyan-300 hover:text-cyan-200"
-                    >
-                      + Add Rule
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Prizes */}
-              <div className="space-y-6">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h2 className="text-lg font-semibold mb-4">Prizes &amp; Rewards</h2>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">First Prize</label>
-                      <input
-                        type="number"
-                        min="0"
-                        name="firstPrize"
-                        value={form.firstPrize}
-                        onChange={handleChange}
-                        placeholder="e.g. 50000"
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">Second Prize</label>
-                      <input
-                        type="number"
-                        min="0"
-                        name="secondPrize"
-                        value={form.secondPrize}
-                        onChange={handleChange}
-                        placeholder="e.g. 30000"
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-white/70">Third Prize</label>
-                      <input
-                        type="number"
-                        min="0"
-                        name="thirdPrize"
-                        value={form.thirdPrize}
-                        onChange={handleChange}
-                        placeholder="Optional"
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/60"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {event.banner_url && (
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                    <h2 className="text-lg font-semibold mb-4">Event Banner</h2>
-                    <div className="rounded-xl overflow-hidden border border-cyan-500/40 bg-black/60">
-                      <img
-                        src={event.banner_url}
-                        alt={event.title}
-                        className="w-full h-40 object-cover"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {event.problem_statement_url && (
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                    <h2 className="text-lg font-semibold mb-4">Problem Statement</h2>
-                    <a
-                      href={event.problem_statement_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 text-sm hover:bg-cyan-500/30 transition-colors"
-                    >
-                      <span>📄</span>
-                      <span>View PDF</span>
-                    </a>
+                        <span className="text-xs text-cyan-300 border border-cyan-500/40 rounded-full px-3 py-1">
+                          Evaluate PPT
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
-
-            <div className="flex justify-between pt-2">
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={updating || event.status !== 'draft'}
-                className="px-6 py-3 rounded-xl bg-red-500/20 border border-red-400/50 text-red-200 text-sm font-semibold hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {event.status !== 'draft' ? 'Cannot Delete (Not Draft)' : 'Delete Event'}
-              </button>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/admin/dashboard')}
-                  className="px-6 py-3 rounded-xl bg-white/5 border border-white/20 text-white/80 text-sm font-semibold hover:bg-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating}
-                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-sm font-semibold shadow-[0_12px_40px_rgba(34,211,238,0.55)] hover:from-cyan-300 hover:to-cyan-500 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {updating ? 'Updating...' : 'Update Event'}
-                </button>
-              </div>
-            </div>
-          </form>
+          )}
         </section>
       </main>
+
+      {/* Event Settings Modal */}
+      {showSettingsModal && event && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[#0f172a]/95 border-b border-white/10 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Event Settings</h2>
+              <button type="button" onClick={() => setShowSettingsModal(false)} className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <form onSubmit={handleSettingsSave} className="p-6 space-y-6">
+              {error && (
+                <div className="bg-red-500/15 border border-red-400/60 text-red-100 text-sm px-4 py-3 rounded-xl">{error}</div>
+              )}
+              {success && (
+                <div className="bg-emerald-500/15 border border-emerald-400/60 text-emerald-100 text-sm px-4 py-3 rounded-xl">{success}</div>
+              )}
+
+              {/* Basic info */}
+              <div>
+                <h3 className="text-sm font-semibold text-cyan-200 mb-3">Basic info</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Event title</label>
+                    <input type="text" value={settingsForm.title} onChange={(e) => handleSettingsChange('title', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" placeholder="Event title" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Committee name</label>
+                    <input type="text" value={settingsForm.committeeName} onChange={(e) => handleSettingsChange('committeeName', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" placeholder="Committee" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Description</label>
+                    <textarea value={settingsForm.description} onChange={(e) => handleSettingsChange('description', e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none resize-none" placeholder="Short description" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Timelines */}
+              <div>
+                <h3 className="text-sm font-semibold text-cyan-200 mb-3">Timelines</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Start date</label>
+                    <input type="date" value={settingsForm.startDate} onChange={(e) => handleSettingsChange('startDate', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">End date</label>
+                    <input type="date" value={settingsForm.endDate} onChange={(e) => handleSettingsChange('endDate', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Registration deadline</label>
+                    <input type="date" value={settingsForm.registrationDeadline} onChange={(e) => handleSettingsChange('registrationDeadline', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">PPT submission deadline</label>
+                    <input type="date" value={settingsForm.pptSubmissionDeadline} onChange={(e) => handleSettingsChange('pptSubmissionDeadline', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Event start time</label>
+                    <input type="time" value={settingsForm.eventStartTime} onChange={(e) => handleSettingsChange('eventStartTime', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Event end time</label>
+                    <input type="time" value={settingsForm.eventEndTime} onChange={(e) => handleSettingsChange('eventEndTime', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Event phase & options */}
+              <div>
+                <h3 className="text-sm font-semibold text-cyan-200 mb-3">Event phase & options</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Status (phase)</label>
+                    <select value={settingsForm.status} onChange={(e) => handleSettingsChange('status', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none">
+                      <option value="draft">Draft (hidden from students)</option>
+                      <option value="registration_open">Registration open</option>
+                      <option value="registration_closed">Registration closed</option>
+                      <option value="ppt_submission">PPT submission</option>
+                      <option value="shortlisting">Shortlisting</option>
+                      <option value="hackathon_active">Hackathon active</option>
+                      <option value="judging">Judging</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Venue</label>
+                    <input type="text" value={settingsForm.venue} onChange={(e) => handleSettingsChange('venue', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" placeholder="e.g. Main Hall" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Teams to shortlist</label>
+                    <input type="number" min={1} max={50} value={settingsForm.teamsToShortlist} onChange={(e) => handleSettingsChange('teamsToShortlist', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Danger zone */}
+              <div className="pt-4 border-t border-white/10">
+                <h3 className="text-sm font-semibold text-red-300/90 mb-3">Danger zone</h3>
+                <p className="text-xs text-white/50 mb-3">Only draft events can be deleted. Set status to &quot;Draft&quot; above and save, then click Delete event.</p>
+                <button type="button" onClick={handleDeleteEvent} disabled={settingsDeleting} className="px-4 py-2 rounded-xl border border-red-400/50 text-red-300 text-sm font-medium hover:bg-red-500/20 disabled:opacity-50">
+                  {settingsDeleting ? 'Deleting…' : 'Delete event'}
+                </button>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowSettingsModal(false)} className="px-4 py-2 rounded-xl border border-white/30 text-sm font-medium hover:bg-white/5">
+                  Cancel
+                </button>
+                <button type="submit" disabled={settingsSaving} className="px-5 py-2 rounded-xl bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-400 disabled:opacity-50">
+                  {settingsSaving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

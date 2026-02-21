@@ -2,11 +2,10 @@ import { supabaseAdmin } from "../config/supabase.js";
 import { uploadImage }   from "../utils/storage.js";
 
 // ─── Helper: get user IDs based on audience ───────────────────────────────────
-const getAudienceUserIds = async (eventId, audience) => {
+const getAudienceUserIds = async (eventId, audience, teamId = null) => {
   const userIds = new Set();
 
   if (audience === "all") {
-    // All confirmed teams for this event
     const { data: teams } = await supabaseAdmin
       .from("teams")
       .select("id, team_members(user_id)")
@@ -19,7 +18,6 @@ const getAudienceUserIds = async (eventId, audience) => {
       }
     }
   } else if (audience === "shortlisted") {
-    // Only shortlisted team members
     const { data: shortlisted } = await supabaseAdmin
       .from("shortlisted_teams")
       .select("team_id, teams(team_members(user_id))")
@@ -30,6 +28,16 @@ const getAudienceUserIds = async (eventId, audience) => {
         userIds.add(member.user_id);
       }
     }
+  } else if (audience === "team" && teamId) {
+    const { data: members } = await supabaseAdmin
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", teamId)
+      .in("status", ["leader", "accepted"]);
+
+    for (const member of members || []) {
+      userIds.add(member.user_id);
+    }
   }
 
   return [...userIds];
@@ -38,33 +46,37 @@ const getAudienceUserIds = async (eventId, audience) => {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * POST /api/announcements
- * Admin creates an announcement for an event
- * Body: { eventId, title, message, audience, link, attachmentBase64, attachmentType }
+ * Admin creates announcement
+ * Body: { eventId, title, message, audience, teamId?, link?, attachmentBase64?, attachmentType? }
  */
 export const createAnnouncement = async (req, res, next) => {
   try {
     const {
       eventId, title, message,
       audience = "all",
+      teamId,
       link,
       attachmentBase64,
-      attachmentType,   // 'image' | 'pdf'
+      attachmentType,
     } = req.body;
 
     const adminId = req.user.id;
 
     // Validate audience
-    if (!["all", "shortlisted"].includes(audience)) {
-      return res.status(400).json({ success: false, message: "audience must be 'all' or 'shortlisted'" });
+    if (!["all", "shortlisted", "team"].includes(audience)) {
+      return res.status(400).json({ success: false, message: "audience must be 'all', 'shortlisted' or 'team'" });
+    }
+    if (audience === "team" && !teamId) {
+      return res.status(400).json({ success: false, message: "teamId is required when audience is 'team'" });
     }
 
     // Upload attachment if provided
     let attachment_url  = null;
     let attachment_type = null;
     if (attachmentBase64 && attachmentType) {
-      const fileType      = attachmentType === "pdf" ? "problem_statement" : "event_banner";
-      attachment_url      = await uploadImage(attachmentBase64, fileType, `announcements/${eventId}`);
-      attachment_type     = attachmentType;
+      const fileType  = attachmentType === "pdf" ? "problem_statement" : "event_banner";
+      attachment_url  = await uploadImage(attachmentBase64, fileType, `announcements/${eventId}`);
+      attachment_type = attachmentType;
     }
 
     // Save announcement
@@ -79,14 +91,15 @@ export const createAnnouncement = async (req, res, next) => {
         attachment_url,
         attachment_type,
         audience,
+        team_id:         audience === "team" ? teamId : null,
       })
       .select()
       .single();
 
     if (error) throw error;
 
-    // Get target user IDs
-    const userIds = await getAudienceUserIds(eventId, audience);
+    // Get target users
+    const userIds = await getAudienceUserIds(eventId, audience, teamId);
 
     if (userIds.length === 0) {
       return res.status(200).json({
@@ -96,7 +109,7 @@ export const createAnnouncement = async (req, res, next) => {
       });
     }
 
-    // Send notification to all target users
+    // Send notifications
     const notifications = userIds.map((userId) => ({
       user_id: userId,
       title:   `📢 ${title}`,
@@ -108,9 +121,9 @@ export const createAnnouncement = async (req, res, next) => {
     await supabaseAdmin.from("notifications").insert(notifications);
 
     res.status(201).json({
-      success:    true,
-      message:    `Announcement sent to ${userIds.length} participants`,
-      data:       announcement,
+      success:       true,
+      message:       `Announcement sent to ${userIds.length} participant(s)`,
+      data:          announcement,
       notifiedCount: userIds.length,
     });
   } catch (err) {
@@ -122,8 +135,6 @@ export const createAnnouncement = async (req, res, next) => {
 /**
  * GET /api/announcements/event/:eventId
  * Get all announcements for an event
- * Students see only announcements relevant to them
- * Admin sees all
  */
 export const getAnnouncementsByEvent = async (req, res, next) => {
   try {
@@ -136,21 +147,29 @@ export const getAnnouncementsByEvent = async (req, res, next) => {
       .eq("event_id", eventId)
       .order("created_at", { ascending: false });
 
-    // Students only see announcements meant for them
     if (user.role === "student") {
       // Check if student is shortlisted
+      const { data: membership } = await supabaseAdmin
+        .from("team_members")
+        .select("team_id, teams!inner(event_id)")
+        .eq("user_id", user.id)
+        .eq("teams.event_id", eventId)
+        .maybeSingle();
+
+      const teamId = membership?.team_id;
+
       const { data: shortlisted } = await supabaseAdmin
         .from("shortlisted_teams")
-        .select("team_id, teams!inner(team_members!inner(user_id))")
+        .select("team_id")
         .eq("event_id", eventId)
-        .eq("teams.team_members.user_id", user.id)
+        .eq("team_id", teamId)
         .maybeSingle();
 
       if (shortlisted) {
-        // Shortlisted students see all announcements
-        query = query.in("audience", ["all", "shortlisted"]);
+        // Shortlisted: see all + team-specific
+        query = query.or(`audience.eq.all,audience.eq.shortlisted,and(audience.eq.team,team_id.eq.${teamId})`);
       } else {
-        // Non-shortlisted students see only 'all' announcements
+        // Not shortlisted: see only 'all' announcements
         query = query.eq("audience", "all");
       }
     }
@@ -167,7 +186,7 @@ export const getAnnouncementsByEvent = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * DELETE /api/announcements/:announcementId
- * Admin deletes an announcement
+ * Admin deletes announcement
  */
 export const deleteAnnouncement = async (req, res, next) => {
   try {

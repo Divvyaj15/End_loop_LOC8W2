@@ -4,6 +4,7 @@ import {
   getLeaderboard,
   confirmShortlist,
   getShortlistedTeams,
+  checkTeamShortlisted,
 } from "../controllers/shortlist.controller.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { isAdmin }     from "../middleware/role.middleware.js";
@@ -18,5 +19,6 @@ router.post("/confirm/:eventId",   verifyToken, isAdmin, confirmShortlist);
 
 // ─── Public (after shortlisting) ─────────────────────────────────────────────
 router.get("/:eventId",            verifyToken, getShortlistedTeams);
+router.get("/check/:eventId/:teamId", verifyToken, checkTeamShortlisted);
 
 export default router;

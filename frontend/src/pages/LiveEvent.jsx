@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { eventAPI, teamsAPI, submissionsAPI, announcementsAPI } from '../services/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { eventAPI, teamsAPI, submissionsAPI, announcementsAPI, shortlistAPI } from '../services/api';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -53,6 +53,7 @@ function useCountdown(deadline) {
 
 export default function LiveEvent() {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [team, setTeam] = useState(null);
   const [submission, setSubmission] = useState(null);
@@ -60,6 +61,7 @@ export default function LiveEvent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [checkingShortlist, setCheckingShortlist] = useState(true);
 
   const user = useMemo(() => {
     try {
@@ -108,6 +110,25 @@ export default function LiveEvent() {
 
   useEffect(() => {
     if (!team?.id) return;
+    
+    // Check if team is shortlisted
+    const checkShortlist = async () => {
+      try {
+        const res = await shortlistAPI.checkTeamShortlisted(eventId, team.id);
+        if (res.data.success && res.data.data.shortlisted) {
+          // Team is shortlisted, redirect to final submission page
+          navigate(`/student/dashboard/events/${eventId}/final-submission`, { replace: true });
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to check shortlist status:', err);
+      } finally {
+        setCheckingShortlist(false);
+      }
+    };
+
+    checkShortlist();
+
     const loadSubmission = async () => {
       try {
         const res = await submissionsAPI.getTeamSubmission(team.id);
@@ -121,7 +142,7 @@ export default function LiveEvent() {
       }
     };
     loadSubmission();
-  }, [team?.id]);
+  }, [eventId, team?.id, navigate]);
 
   const handleUploadPPT = async (e) => {
     const file = e.target.files?.[0];
@@ -154,7 +175,7 @@ export default function LiveEvent() {
   const isLeader = team && user && team.leader_id === user.id;
   const members = team?.team_members || [];
 
-  if (loading) {
+  if (loading || checkingShortlist) {
     return (
       <div className="space-y-6">
         <div className="h-10 w-64 rounded bg-white/10 animate-pulse" />

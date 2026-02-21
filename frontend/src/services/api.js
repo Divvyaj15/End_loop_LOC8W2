@@ -78,6 +78,10 @@ export const submissionsAPI = {
   getTeamSubmission: (teamId) => api.get(`/submissions/team/${teamId}`),
   submitPPT: (data) => api.post('/submissions', data),
   getProblemStatement: (eventId) => api.get(`/submissions/event/${eventId}/problem-statement`),
+  getFinalSubmission: (teamId) => api.get(`/submissions/final/${teamId}`),
+  submitFinalPPT: (data) => api.post('/submissions/final-ppt', data),
+  submitFinalGitHub: (data) => api.post('/submissions/final-github', data),
+  submitFinalVideo: (data) => api.post('/submissions/final-video', data),
 };
 
 // Events API (admin + public)
@@ -95,6 +99,12 @@ export const eventAPI = {
 // Announcements API (student/admin)
 export const announcementsAPI = {
   getByEvent: (eventId) => api.get(`/announcements/event/${eventId}`),
+};
+
+// Shortlist API (student)
+export const shortlistAPI = {
+  getShortlistedTeams: (eventId) => api.get(`/shortlist/${eventId}`),
+  checkTeamShortlisted: (eventId, teamId) => api.get(`/shortlist/check/${eventId}/${teamId}`),
 };
 
 export default api;

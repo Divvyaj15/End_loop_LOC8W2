@@ -13,6 +13,7 @@ import HackathonDetails from './pages/HackathonDetails';
 import LiveEvent from './pages/LiveEvent';
 import EventSelection from './pages/EventSelection';
 import EventDashboard from './pages/EventDashboard';
+import FinalSubmission from './pages/FinalSubmission';
 import './App.css';
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
           <Route path="events/:eventId/create-team" element={<CreateTeam />} />
           <Route path="events/:eventId/live" element={<LiveEvent />} />
           <Route path="events/:eventId/dashboard" element={<EventDashboard />} />
+          <Route path="events/:eventId/final-submission" element={<FinalSubmission />} />
           <Route path="events/:eventId" element={<HackathonDetails />} />
         </Route>
       </Routes>

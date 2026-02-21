@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventAPI, teamsAPI, submissionsAPI, announcementsAPI } from '../services/api';
+import { eventAPI, teamsAPI, submissionsAPI, announcementsAPI, shortlistAPI } from '../services/api';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -86,6 +86,7 @@ export default function EventDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [checkingShortlist, setCheckingShortlist] = useState(true);
 
   const user = useMemo(() => {
     try {
@@ -134,6 +135,25 @@ export default function EventDashboard() {
 
   useEffect(() => {
     if (!team?.id) return;
+    
+    // Check if team is shortlisted
+    const checkShortlist = async () => {
+      try {
+        const res = await shortlistAPI.checkTeamShortlisted(eventId, team.id);
+        if (res.data.success && res.data.data.shortlisted) {
+          // Team is shortlisted, redirect to final submission page
+          navigate(`/student/dashboard/events/${eventId}/final-submission`, { replace: true });
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to check shortlist status:', err);
+      } finally {
+        setCheckingShortlist(false);
+      }
+    };
+
+    checkShortlist();
+
     const loadSubmission = async () => {
       try {
         const res = await submissionsAPI.getTeamSubmission(team.id);
@@ -147,7 +167,7 @@ export default function EventDashboard() {
       }
     };
     loadSubmission();
-  }, [team?.id]);
+  }, [eventId, team?.id, navigate]);
 
   const handleUploadPPT = async (e) => {
     const file = e.target.files?.[0];
@@ -224,7 +244,7 @@ export default function EventDashboard() {
     return items.sort((a, b) => a.timestamp - b.timestamp);
   }, [event]);
 
-  if (loading) {
+  if (loading || checkingShortlist) {
     return (
       <div className="space-y-6">
         <div className="h-10 w-64 rounded bg-white/10 animate-pulse" />

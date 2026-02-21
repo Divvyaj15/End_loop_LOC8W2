@@ -16,6 +16,8 @@ export default function ManageEvent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [activeSection, setActiveSection] = useState('manage'); // 'manage' | 'ppt'
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsDeleting, setSettingsDeleting] = useState(false);
@@ -352,7 +354,11 @@ export default function ManageEvent() {
                   {registeredTeams.map((team) => (
                     <div
                       key={team.id}
-                      className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedTeam(team)}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelectedTeam(team)}
+                      className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <div className="text-sm font-semibold text-white">
@@ -605,6 +611,79 @@ export default function ManageEvent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Team detail modal – list of members, click member for info */}
+      {selectedTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedTeam(null)}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold text-white">Team: {selectedTeam.team_name}</h2>
+              <button type="button" onClick={() => setSelectedTeam(null)} className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+              {(selectedTeam.team_members || [])
+                .filter((m) => m.status === 'accepted' || m.status === 'leader')
+                .map((m) => {
+                  const u = m.users;
+                  const name = u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : 'Unknown';
+                  return (
+                    <button
+                      key={m.user_id || u?.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMember({ user: u, teamName: selectedTeam.team_name, role: m.status === 'leader' ? 'Leader' : 'Member' });
+                        setSelectedTeam(null);
+                      }}
+                      className="w-full text-left flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:border-cyan-400/40 hover:bg-white/10 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-white">{name}</p>
+                        <p className="text-xs text-white/50">{u?.email}</p>
+                      </div>
+                      <span className="text-xs text-cyan-300/90">{m.status === 'leader' ? 'Leader' : 'Member'}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member / participant info modal */}
+      {selectedMember && selectedMember.user && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedMember(null)}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold text-white">Participant</h2>
+              <button type="button" onClick={() => setSelectedMember(null)} className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Name</p>
+                <p className="text-white font-medium">
+                  {[selectedMember.user.first_name, selectedMember.user.last_name].filter(Boolean).join(' ') || '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Email</p>
+                <p className="text-white font-medium">{selectedMember.user.email || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Team</p>
+                <p className="text-cyan-300 font-medium">{selectedMember.teamName || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-white/50 uppercase tracking-wider">Role</p>
+                <p className="text-white font-medium">{selectedMember.role || '—'}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

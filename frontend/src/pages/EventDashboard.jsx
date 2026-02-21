@@ -19,6 +19,7 @@ export default function EventDashboard() {
   const [eventNotStartedMessage, setEventNotStartedMessage] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const lastScannedTokenRef = useRef({ token: null, at: 0 });
@@ -85,12 +86,12 @@ export default function EventDashboard() {
       const foodData = foodReportRes.data.success ? foodReportRes.data.summary : {};
       const leaderboardData = leaderboardRes.data.success ? leaderboardRes.data.data : [];
 
-      // Calculate total participants from teams
+      // Calculate total participants from teams (include both 'leader' and 'accepted')
       let totalParticipants = 0;
       teamsData.forEach((team) => {
         if (team.team_members && Array.isArray(team.team_members)) {
           totalParticipants += team.team_members.filter(
-            (member) => member.status === 'accepted'
+            (member) => member.status === 'accepted' || member.status === 'leader'
           ).length;
         }
       });
@@ -396,10 +397,15 @@ export default function EventDashboard() {
             <div className="space-y-6">
               {/* Key Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <button
+                  type="button"
+                  onClick={() => setShowParticipantsModal(true)}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
+                >
                   <div className="text-3xl font-bold text-white mb-1">{stats.totalParticipants}</div>
                   <div className="text-xs text-white/70">Total Participants</div>
-                </div>
+                  <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
+                </button>
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
                   <div className="text-3xl font-bold text-white mb-1">{stats.teamsRegistered}</div>
                   <div className="text-xs text-white/70">Teams Registered</div>
@@ -666,6 +672,50 @@ export default function EventDashboard() {
                   {scanning ? '…' : 'Submit'}
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Participants modal */}
+      {showParticipantsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowParticipantsModal(false)}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold text-white">All Participants</h2>
+              <button type="button" onClick={() => setShowParticipantsModal(false)} className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {(() => {
+                const list = [];
+                teams.forEach((team) => {
+                  (team.team_members || []).forEach((m) => {
+                    if (m.status !== 'accepted' && m.status !== 'leader') return;
+                    const u = m.users;
+                    list.push({
+                      name: u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : 'Unknown',
+                      email: u?.email,
+                      team: team.team_name,
+                      role: m.status === 'leader' ? 'Leader' : 'Member',
+                    });
+                  });
+                });
+                if (list.length === 0) return <p className="text-white/50 text-sm py-4 text-center">No participants yet</p>;
+                return list.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                    <div>
+                      <p className="text-sm font-medium text-white">{p.name}</p>
+                      <p className="text-xs text-white/50">{p.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-cyan-300">{p.team}</p>
+                      <p className="text-xs text-white/40">{p.role}</p>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>

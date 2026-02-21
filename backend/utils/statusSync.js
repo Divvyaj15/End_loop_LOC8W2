@@ -40,14 +40,14 @@ function getStatusFromDates(event) {
  * Syncs event status in the DB based on current date and event timelines.
  * Called whenever an event is fetched so status is always up to date.
  *
- * - "draft" and "completed" are never overwritten by date logic.
+ * - "draft", "judging", and "completed" are never overwritten by date logic.
  * - New events are created with registration_open and then stay in sync via dates.
  */
 export const syncEventStatus = async (event) => {
   if (!event || !event.id) return event;
 
-  // Never auto-change draft (admin choice) or completed (set when admin locks judge scores)
-  if (event.status === "draft" || event.status === "completed") {
+  // Never auto-change manual phases: draft, judging, or completed.
+  if (event.status === "draft" || event.status === "judging" || event.status === "completed") {
     return event;
   }
 

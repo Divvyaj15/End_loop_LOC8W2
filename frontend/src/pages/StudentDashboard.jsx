@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { eventAPI, teamAPI } from '../services/api';
+import StudentInbox from '../components/StudentInbox';
 
 // ── SVG icon components ──────────────────────────────────────────────────────
 const IconDashboard = ({ className }) => (
@@ -173,24 +174,35 @@ export default function StudentDashboard() {
           </span>
         </div>
         <nav className="flex-1 py-6 space-y-1 px-2 lg:px-3 overflow-y-auto">
-          {SIDEBAR_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${isActive
-                  ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200'
-                  : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
-                }`
-              }
-            >
-              <span className="w-8 flex items-center justify-center flex-shrink-0">
-                <item.Icon className="w-5 h-5" />
-              </span>
-              <span className="hidden lg:inline">{item.label}</span>
-            </NavLink>
-          ))}
+          {SIDEBAR_ITEMS.map((item) => {
+            const pendingCount = item.to === '/student/teams' ? (myTeams || []).filter((t) => t.status === 'pending').length : 0;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${isActive
+                    ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200'
+                    : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                  }`
+                }
+              >
+                <span className="w-8 flex items-center justify-center flex-shrink-0 relative">
+                  <item.Icon className="w-5 h-5" />
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-amber-500 text-black text-[10px] font-bold">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
+                <span className="hidden lg:inline flex-1">{item.label}</span>
+                {pendingCount > 0 && (
+                  <span className="hidden lg:inline text-amber-400 text-xs font-medium">({pendingCount})</span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
         <div className="pt-4 border-t border-white/10 px-2 lg:px-3 pb-4">
           <button
@@ -226,7 +238,8 @@ export default function StudentDashboard() {
             </button>
             <span className="text-white/90 font-medium">HACK-X&apos;s WorkSpace</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <StudentInbox />
             <button
               type="button"
               onClick={() => {
@@ -251,6 +264,25 @@ export default function StudentDashboard() {
           {error && (
             <div className="mb-4 bg-red-500/15 border border-red-400/60 text-red-100 text-sm px-4 py-3 rounded-xl">
               {error}
+            </div>
+          )}
+
+          {!loading && (myTeams || []).filter((t) => t.status === 'pending').length > 0 && (
+            <div className="mb-6 p-4 rounded-xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">📩</span>
+                <div>
+                  <p className="text-amber-200 font-medium">You have team invitation(s) waiting for your response</p>
+                  <p className="text-amber-200/70 text-sm mt-0.5">Accept or decline to confirm your participation</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/student/teams')}
+                className="px-4 py-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-100 font-medium text-sm border border-amber-400/40 transition-colors"
+              >
+                View & Respond →
+              </button>
             </div>
           )}
 

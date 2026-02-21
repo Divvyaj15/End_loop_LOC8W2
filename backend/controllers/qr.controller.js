@@ -20,8 +20,12 @@ export const generateEntryQRs = async (req, res, next) => {
     if (!event) {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
-    if (event.status !== "hackathon_active") {
-      return res.status(400).json({ success: false, message: "QRs can only be generated after shortlisting is confirmed" });
+    const qrAllowedStatuses = ["shortlisting", "hackathon_active"];
+    if (!qrAllowedStatuses.includes(event.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "QRs can only be generated in shortlisting or hackathon active phase",
+      });
     }
 
     const meals = event.meals || [];

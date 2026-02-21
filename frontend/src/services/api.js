@@ -149,4 +149,12 @@ export const pptSubmissionAPI = {
   getProblemStatement: (eventId) => api.get(`/submissions/event/${eventId}/problem-statement`),
 };
 
+// Certificates API
+export const certificateAPI = {
+  generate: (eventId) => api.post(`/certificates/generate/${eventId}`),
+  getEventCertificates: (eventId) => api.get(`/certificates/event/${eventId}`),
+  getMyCertificate: (eventId) => api.get(`/certificates/my/${eventId}`),
+  verifyCertificate: (certificateId) => api.get(`/certificates/verify/${certificateId}`),
+};
+
 export default api;

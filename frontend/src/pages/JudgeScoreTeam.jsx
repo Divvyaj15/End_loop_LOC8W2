@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { judgeAPI, submissionAPI } from '../services/api';
+import { judgeAPI, hackathonSubmissionAPI, pptSubmissionAPI } from '../services/api';
 
 const CRITERIA = [
   { key: 'innovation', label: 'Innovation' },
@@ -74,16 +74,25 @@ export default function JudgeScoreTeam() {
           setError('Scoring has been locked. You cannot re-score this team.');
         }
 
-        // Fetch submission (PPT)
+        // Fetch submission links for judges.
+        // Priority: hackathon submissions (ppt + github + demo video), fallback to PPT-only submission.
         try {
-          const subRes = await submissionAPI.getSubmissionsByEvent(eventId);
-          if (subRes.data.success) {
-            const submissions = subRes.data.data || [];
-            const teamSubmission = submissions.find((s) => s.team_id === teamId || s.teams?.id === teamId);
-            if (teamSubmission) {
-              setSubmission(teamSubmission);
+          let teamSubmission = null;
+
+          const hackathonRes = await hackathonSubmissionAPI.getSubmissionsForJudge(eventId).catch(() => null);
+          if (hackathonRes?.data?.success) {
+            const hackathonSubs = hackathonRes.data.data || [];
+            teamSubmission = hackathonSubs.find((s) => s.team_id === teamId || s.teams?.id === teamId) || null;
+          }
+
+          if (!teamSubmission) {
+            const pptRes = await pptSubmissionAPI.getTeamSubmission(teamId).catch(() => null);
+            if (pptRes?.data?.success && pptRes?.data?.data) {
+              teamSubmission = pptRes.data.data;
             }
           }
+
+          setSubmission(teamSubmission);
         } catch (err) {
           console.error('Failed to fetch submission:', err);
         }
@@ -247,20 +256,42 @@ export default function JudgeScoreTeam() {
                   View PPT
                 </a>
               )}
-              <button
-                disabled
-                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/40 text-sm font-medium cursor-not-allowed"
-                title="GitHub link not available"
-              >
-                View GitHub
-              </button>
-              <button
-                disabled
-                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/40 text-sm font-medium cursor-not-allowed"
-                title="Video not available"
-              >
-                View Uploaded Video
-              </button>
+              {submission?.github_link ? (
+                <a
+                  href={submission.github_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-colors"
+                >
+                  View GitHub
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/40 text-sm font-medium cursor-not-allowed"
+                  title="GitHub link not available"
+                >
+                  View GitHub
+                </button>
+              )}
+              {submission?.demo_video_link ? (
+                <a
+                  href={submission.demo_video_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-colors"
+                >
+                  View Uploaded Video
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/40 text-sm font-medium cursor-not-allowed"
+                  title="Video not available"
+                >
+                  View Uploaded Video
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
-import { supabaseAdmin }      from "../config/supabase.js";
-import { sendShortlistEmail } from "../utils/mailer.js";
+import { supabaseAdmin }                      from "../config/supabase.js";
+import { sendShortlistEmail, sendGrandFinaleEmail } from "../utils/mailer.js";
 
 // ─── Helper: calculate weighted total score ───────────────────────────────────
 const calcTotal = (scores, weights) => {
@@ -301,6 +301,17 @@ export const getShortlistedTeams = async (req, res, next) => {
 export const confirmGrandFinale = async (req, res, next) => {
   try {
     const eventId = req.params.eventId;
+    const now = new Date().toISOString();
+
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("id, title")
+      .eq("id", eventId)
+      .single();
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
 
     const { data: shortlisted, error: listErr } = await supabaseAdmin
       .from("shortlisted_teams")
@@ -323,9 +334,58 @@ export const confirmGrandFinale = async (req, res, next) => {
     const { error: insertErr } = await supabaseAdmin.from("grand_finale_teams").insert(insertRows);
     if (insertErr) throw insertErr;
 
+    // Close active submission phases for this event and move to judging.
+    await supabaseAdmin
+      .from("events")
+      .update({ status: "judging", updated_at: now })
+      .eq("id", eventId);
+
+    // Lock existing hackathon submissions to prevent further edits.
+    await supabaseAdmin
+      .from("hackathon_submissions")
+      .update({ is_locked: true, updated_at: now })
+      .eq("event_id", eventId);
+
+    // Notify + email all moved teams (accepted members + leader).
+    for (const row of shortlisted) {
+      const { data: team } = await supabaseAdmin
+        .from("teams")
+        .select("id, team_name")
+        .eq("id", row.team_id)
+        .single();
+
+      const { data: members } = await supabaseAdmin
+        .from("team_members")
+        .select("user_id, status, users(first_name, email)")
+        .eq("team_id", row.team_id)
+        .in("status", ["leader", "accepted"]);
+
+      for (const member of members || []) {
+        await supabaseAdmin.from("notifications").insert({
+          user_id: member.user_id,
+          title:   "🏆 Grand Finale Qualified!",
+          message: `Your team "${team?.team_name || "Your Team"}" has moved to the Grand Finale for "${event.title}".`,
+          type:    "grand_finale",
+          data:    { eventId, teamId: row.team_id },
+        });
+
+        if (member.users?.email) {
+          try {
+            await sendGrandFinaleEmail(member.users.email, {
+              name: member.users.first_name,
+              teamName: team?.team_name || "Your Team",
+              eventName: event.title,
+            });
+          } catch (emailErr) {
+            console.error(`[EMAIL] Grand Finale email failed for ${member.users.email}:`, emailErr.message);
+          }
+        }
+      }
+    }
+
     res.status(200).json({
       success: true,
-      message: `${shortlisted.length} team(s) moved to Grand Finale.`,
+      message: `${shortlisted.length} team(s) moved to Grand Finale. Participants notified and event moved to judging phase.`,
       data:    { count: shortlisted.length },
     });
   } catch (err) {

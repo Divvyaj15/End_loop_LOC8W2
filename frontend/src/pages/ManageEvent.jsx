@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { eventAPI, teamAPI, shortlistAPI, qrAPI, submissionAPI, judgeAPI } from '../services/api';
+import { eventAPI, teamAPI, shortlistAPI, qrAPI, submissionAPI, judgeAPI, certificateAPI } from '../services/api';
 
 export default function ManageEvent() {
   const { eventId } = useParams();
@@ -314,6 +314,12 @@ export default function ManageEvent() {
   };
 
   const handleSendQRs = async () => {
+    const canGenerateQRs = ['shortlisting', 'hackathon_active'].includes(event?.status);
+    if (!canGenerateQRs) {
+      setError('QRs can only be generated in shortlisting or hackathon active phase');
+      return;
+    }
+
     if (!window.confirm('Generate and send QR codes to all shortlisted teams?')) {
       return;
     }
@@ -329,6 +335,27 @@ export default function ManageEvent() {
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to generate QR codes');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleGenerateCertificates = async () => {
+    if (!window.confirm('Generate certificates for all shortlisted teams? This will also email them.')) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await certificateAPI.generate(eventId);
+      if (response.data.success) {
+        setSuccess(response.data.message || 'Certificates generated successfully!');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to generate certificates');
     } finally {
       setActionLoading(false);
     }
@@ -421,6 +448,8 @@ export default function ManageEvent() {
     );
   }
 
+  const canGenerateQRs = ['shortlisting', 'hackathon_active'].includes(event?.status);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex">
       {/* Sidebar */}
@@ -434,8 +463,8 @@ export default function ManageEvent() {
           <button
             onClick={() => setActiveSection('manage')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${activeSection === 'manage'
-                ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-200'
-                : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
+              ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-200'
+              : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
               }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
@@ -446,8 +475,8 @@ export default function ManageEvent() {
           <button
             onClick={() => setActiveSection('ppt')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${activeSection === 'ppt'
-                ? 'bg-purple-500/20 border border-purple-400/50 text-purple-200'
-                : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
+              ? 'bg-purple-500/20 border border-purple-400/50 text-purple-200'
+              : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
               }`}
           >
             <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
@@ -562,6 +591,13 @@ export default function ManageEvent() {
                   <h2 className="text-lg font-semibold">Shortlisted Teams</h2>
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={handleGenerateCertificates}
+                      disabled={actionLoading || shortlistedTeams.length === 0}
+                      className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                    >
+                      Generate Certificates
+                    </button>
+                    <button
                       onClick={handleMoveToGrandFinale}
                       disabled={actionLoading || shortlistedTeams.length === 0}
                       className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
@@ -570,7 +606,7 @@ export default function ManageEvent() {
                     </button>
                     <button
                       onClick={handleSendQRs}
-                      disabled={actionLoading || shortlistedTeams.length === 0}
+                      disabled={actionLoading || shortlistedTeams.length === 0 || !canGenerateQRs}
                       className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
                     >
                       Send QRs
@@ -737,8 +773,8 @@ export default function ManageEvent() {
                           key={j.id}
                           onClick={() => setSelectedJudgeForAssign(selectedJudgeForAssign?.id === j.id ? null : j)}
                           className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${selectedJudgeForAssign?.id === j.id
-                              ? 'bg-amber-500/30 border-amber-400 text-amber-200'
-                              : 'bg-black/40 border-white/20 text-white/70 hover:border-amber-400/60'
+                            ? 'bg-amber-500/30 border-amber-400 text-amber-200'
+                            : 'bg-black/40 border-white/20 text-white/70 hover:border-amber-400/60'
                             }`}
                         >
                           {j.first_name} {j.last_name}

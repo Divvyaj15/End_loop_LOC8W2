@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { teamAPI } from '../services/api';
+import StudentInbox from '../components/StudentInbox';
 
 // ── Shared SVG icons (same as StudentDashboard) ───────────────────────────────
 const IconDashboard = ({ className }) => (
@@ -151,7 +152,8 @@ export default function StudentMyEvents() {
             </button>
             <span className="text-white/90 font-medium">HACK-X&apos;s WorkSpace</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <StudentInbox />
             <button
               type="button"
               onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/login'); }}

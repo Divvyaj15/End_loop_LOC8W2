@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import StudentInbox from './StudentInbox';
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 const IconDashboard = ({ className }) => (
@@ -53,7 +54,7 @@ const NAV_ITEMS = [
   { to: '/student/profile', label: 'Profile', Icon: IconProfile },
 ];
 
-export default function StudentSidebar() {
+export default function StudentSidebar({ pendingInvitesCount = 0 } = {}) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -64,31 +65,43 @@ export default function StudentSidebar() {
 
   return (
     <aside className="w-20 lg:w-56 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col flex-shrink-0">
-      {/* Logo */}
-      <div className="h-20 flex items-center justify-center lg:justify-start px-4 border-b border-white/10">
-        <span className="text-cyan-400 font-semibold tracking-[0.2em] text-xs lg:text-sm">HACK-X</span>
+      {/* Logo + Inbox */}
+      <div className="h-20 flex items-center justify-between px-3 lg:px-4 border-b border-white/10 gap-2">
+        <span className="text-cyan-400 font-semibold tracking-[0.2em] text-xs lg:text-sm truncate">HACK-X</span>
+        <StudentInbox align="left" />
       </div>
 
       {/* Nav */}
       <nav className="flex-1 py-6 space-y-1 px-2 lg:px-3 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${isActive
-                ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200'
-                : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
-              }`
-            }
-          >
-            <span className="w-8 flex items-center justify-center flex-shrink-0">
-              <item.Icon className="w-5 h-5" />
-            </span>
-            <span className="hidden lg:inline">{item.label}</span>
-          </NavLink>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const badgeCount = item.to === '/student/teams' ? pendingInvitesCount : 0;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${isActive
+                  ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200'
+                  : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                }`
+              }
+            >
+              <span className="w-8 flex items-center justify-center flex-shrink-0 relative">
+                <item.Icon className="w-5 h-5" />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-amber-500 text-black text-[10px] font-bold">
+                    {badgeCount}
+                  </span>
+                )}
+              </span>
+              <span className="hidden lg:inline flex-1">{item.label}</span>
+              {badgeCount > 0 && (
+                <span className="hidden lg:inline text-amber-400 text-xs font-medium">({badgeCount})</span>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Logout */}

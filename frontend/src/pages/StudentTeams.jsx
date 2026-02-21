@@ -111,7 +111,7 @@ export default function StudentTeams() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex">
-      <StudentSidebar />
+      <StudentSidebar pendingInvitesCount={pendingInvites.length} />
       <main className="flex-1 overflow-y-auto p-6 lg:p-10">
       <div className="max-w-4xl mx-auto space-y-10">
 

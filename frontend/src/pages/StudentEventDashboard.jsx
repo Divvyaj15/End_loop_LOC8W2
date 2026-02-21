@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, NavLink, Link } from 'react-router-dom';
 import { eventAPI, teamAPI, pptSubmissionAPI, hackathonSubmissionAPI } from '../services/api';
+import StudentInbox from '../components/StudentInbox';
 
 // ── Shared SVG icons ─────────────────────────────────────────────────────────────
 const IconDashboard = ({ className }) => (
@@ -261,15 +262,20 @@ export default function StudentEventDashboard() {
 
     const isLeader = team?.teams?.leader_id === user.id;
 
-    // Map correct team members from fetched full details, or fall back to current user as leader
-    const members = teamDetails?.team_members?.map(m => ({
-        id: m.users?.id || m.id,
-        name: m.users ? `${m.users.first_name || ''} ${m.users.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
-        role: m.status === 'leader' ? 'leader' : 'member',
-        joined: m.joined_at
-    })) || [
-            { id: user.id, name: user.first_name + ' ' + (user.last_name || ''), role: 'leader', joined: team?.teams?.created_at }
-        ];
+    // Only show members who have accepted (leader + accepted). Pending invitees are not in the team yet.
+    const allTeamMembers = teamDetails?.team_members || [];
+    let members = allTeamMembers
+        .filter(m => m.status === 'leader' || m.status === 'accepted')
+        .map(m => ({
+            id: m.users?.id || m.id,
+            name: m.users ? `${m.users.first_name || ''} ${m.users.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
+            role: m.status === 'leader' ? 'leader' : 'member',
+            joined: m.joined_at
+        }));
+    if (members.length === 0 && isLeader) {
+        members = [{ id: user.id, name: user.first_name + ' ' + (user.last_name || ''), role: 'leader', joined: team?.teams?.created_at }];
+    }
+    const pendingInvitees = isLeader ? allTeamMembers.filter(m => m.status === 'pending') : [];
 
     return (
         <div className="min-h-screen flex bg-gradient-to-br from-[#0c1220] via-[#050816] to-[#040610] text-white overflow-hidden relative font-sans">
@@ -325,7 +331,8 @@ export default function StudentEventDashboard() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <StudentInbox />
                         <div className="hidden sm:flex items-center gap-3 bg-white/5 rounded-full pl-3 pr-1 py-1 border border-white/10">
                             <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                             <span className="text-sm font-medium text-white/80 pr-2">{user.first_name} {user.last_name || ''}</span>
@@ -403,7 +410,9 @@ export default function StudentEventDashboard() {
                                                             <img key={i} className="w-8 h-8 rounded-full border-2 border-[#1a1f35] object-cover" src={`https://ui-avatars.com/api/?name=${m.name.replace(' ', '+')}&background=random`} alt={m.name} />
                                                         ))}
                                                     </div>
-                                                    <span className="text-white/60 text-sm ml-2">Ana Soares <span className="opacity-50">&rsaquo;</span></span>
+                                                    {members.length > 0 && (
+                                                        <span className="text-white/60 text-sm ml-2">{members.length} member{members.length !== 1 ? 's' : ''} <span className="opacity-50">&rsaquo;</span></span>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -518,6 +527,20 @@ export default function StudentEventDashboard() {
                                     {/* Team Details Table below the main card */}
                                     <div>
                                         <h3 className="text-xl font-semibold text-white/90 mb-4 px-1">Team Details</h3>
+                                        {pendingInvitees.length > 0 && (
+                                            <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-400/30">
+                                                <p className="text-amber-200 text-sm font-medium mb-2">
+                                                    {pendingInvitees.length} invite{pendingInvitees.length !== 1 ? 's' : ''} pending — members will appear here once they accept
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {pendingInvitees.map((p, i) => (
+                                                        <span key={i} className="text-xs text-amber-300/90 px-2 py-1 rounded-lg bg-amber-500/20">
+                                                            {p.users ? `${p.users.first_name || ''} ${p.users.last_name || ''}`.trim() || p.users.email : 'Unknown'}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="bg-white/[0.03] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-md">
                                             <table className="w-full text-left text-sm">
                                                 <thead className="bg-white/[0.02] border-b border-white/5 text-white/40 font-medium">

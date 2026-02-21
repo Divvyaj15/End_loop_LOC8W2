@@ -71,7 +71,7 @@ export default function Login() {
           HACK-X
         </h1>
         <p className="mt-4 text-sm md:text-base text-white/70">
-          End_Loop&apos;s unified workspace for{' '}
+          HACK-X&apos;s unified workspace for{' '}
           <span className="text-cyan-400 font-semibold">students</span>,{' '}
           <span className="text-purple-400 font-semibold">admins</span> and{' '}
           <span className="text-pink-400 font-semibold">judges</span>.
@@ -83,7 +83,7 @@ export default function Login() {
         <h2 className="text-white text-3xl font-semibold text-center mb-8 drop-shadow-[0_0_20px_rgba(0,217,255,0.3)]">
           Login
         </h2>
-        
+
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-6 text-center text-sm space-y-2">
             <p>{error}</p>

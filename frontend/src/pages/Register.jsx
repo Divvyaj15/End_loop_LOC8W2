@@ -73,7 +73,7 @@ export default function Register() {
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || 
+        err.response?.data?.message ||
         'Registration failed. Please try again.'
       );
     } finally {
@@ -103,7 +103,7 @@ export default function Register() {
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || 
+        err.response?.data?.message ||
         'Invalid OTP. Please try again.'
       );
     } finally {
@@ -159,7 +159,7 @@ export default function Register() {
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || 
+        err.response?.data?.message ||
         'Registration completion failed. Please try again.'
       );
     } finally {
@@ -247,7 +247,7 @@ export default function Register() {
       </div>
 
       <h1 className="text-4xl md:text-5xl font-bold text-[#e0e7ff] mb-8 text-center relative z-10 tracking-wider drop-shadow-[0_0_20px_rgba(0,217,255,0.5)]">
-        End_Loop's WorkSpace
+        HACK-X's WorkSpace
       </h1>
 
       <div className="relative z-10 bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-10 w-full max-w-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">

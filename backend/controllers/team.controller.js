@@ -316,7 +316,7 @@ export const getMyTeams = async (req, res, next) => {
         joined_at,
         teams (
           id, team_name, status, event_id, leader_id, created_at,
-          events ( title, start_date, end_date, committee_name )
+          events!teams_event_id_fkey ( title, start_date, end_date, committee_name )
         )
       `)
       .eq("user_id", req.user.id);
@@ -340,7 +340,7 @@ export const getTeamById = async (req, res, next) => {
       .from("teams")
       .select(`
         *,
-        events ( title, start_date, end_date, committee_name ),
+        events!teams_event_id_fkey ( title, start_date, end_date, committee_name ),
         team_members (
           status, joined_at,
           users ( id, first_name, last_name, email )

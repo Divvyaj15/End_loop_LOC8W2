@@ -219,15 +219,15 @@ export default function AdminDashboard() {
       }
 
       setSuccess('Event created successfully! Redirecting to event dashboard...');
-      
+
       // Hide form and redirect to event dashboard
       setShowCreateForm(false);
-      
+
       // Redirect to event dashboard after 1.5 seconds
       setTimeout(() => {
         navigate(`/admin/events/${createdEvent.id}`);
       }, 1500);
-      
+
       return; // Exit early to prevent form reset
     } catch (err) {
       setError(
@@ -303,7 +303,7 @@ export default function AdminDashboard() {
       <aside className="w-20 lg:w-64 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
         <div className="h-20 flex items-center justify-center lg:justify-start px-6 border-b border-white/10">
           <span className="text-cyan-400 font-semibold tracking-[0.25em] text-xs lg:text-sm">
-            END_LOOP
+            HACK-X
           </span>
         </div>
         <nav className="flex-1 py-6 space-y-2 px-2 lg:px-4">
@@ -430,11 +430,10 @@ export default function AdminDashboard() {
                             key={opt.value}
                             type="button"
                             onClick={() => toggleCategory(opt.value)}
-                            className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-                              form.categories.includes(opt.value)
+                            className={`px-3 py-1.5 rounded-full text-xs border transition-all ${form.categories.includes(opt.value)
                                 ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.5)]'
                                 : 'bg-black/40 border-white/15 text-white/70 hover:border-cyan-400/60'
-                            }`}
+                              }`}
                           >
                             {opt.label}
                           </button>
@@ -448,33 +447,30 @@ export default function AdminDashboard() {
                         <button
                           type="button"
                           onClick={() => handleModeToggle('online')}
-                          className={`px-4 py-1.5 text-xs rounded-lg ${
-                            form.mode === 'online'
+                          className={`px-4 py-1.5 text-xs rounded-lg ${form.mode === 'online'
                               ? 'bg-cyan-500/80 text-black font-semibold'
                               : 'text-white/70'
-                          }`}
+                            }`}
                         >
                           Online
                         </button>
                         <button
                           type="button"
                           onClick={() => handleModeToggle('offline')}
-                          className={`px-4 py-1.5 text-xs rounded-lg ${
-                            form.mode === 'offline'
+                          className={`px-4 py-1.5 text-xs rounded-lg ${form.mode === 'offline'
                               ? 'bg-cyan-500/80 text-black font-semibold'
                               : 'text-white/70'
-                          }`}
+                            }`}
                         >
                           Offline
                         </button>
                         <button
                           type="button"
                           onClick={() => handleModeToggle('hybrid')}
-                          className={`px-4 py-1.5 text-xs rounded-lg ${
-                            form.mode === 'hybrid'
+                          className={`px-4 py-1.5 text-xs rounded-lg ${form.mode === 'hybrid'
                               ? 'bg-cyan-500/80 text-black font-semibold'
                               : 'text-white/70'
-                          }`}
+                            }`}
                         >
                           Hybrid
                         </button>
@@ -634,14 +630,12 @@ export default function AdminDashboard() {
                             <button
                               type="button"
                               onClick={() => handleIsFreeToggle(!form.isFree)}
-                              className={`w-10 h-5 rounded-full flex items-center px-0.5 ${
-                                form.isFree ? 'bg-cyan-500' : 'bg-white/20'
-                              }`}
+                              className={`w-10 h-5 rounded-full flex items-center px-0.5 ${form.isFree ? 'bg-cyan-500' : 'bg-white/20'
+                                }`}
                             >
                               <span
-                                className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                                  form.isFree ? 'translate-x-5' : 'translate-x-0'
-                                }`}
+                                className={`w-4 h-4 rounded-full bg-white transform transition-transform ${form.isFree ? 'translate-x-5' : 'translate-x-0'
+                                  }`}
                               />
                             </button>
                           </div>
@@ -731,11 +725,10 @@ export default function AdminDashboard() {
                       <button
                         type="button"
                         onClick={handleMealAll}
-                        className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-                          form.meals.length === MEAL_OPTIONS.length
+                        className={`px-3 py-1.5 rounded-full text-xs border transition-all ${form.meals.length === MEAL_OPTIONS.length
                             ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
                             : 'bg-black/40 border-white/15 text-white/70 hover:border-cyan-400/60'
-                        }`}
+                          }`}
                       >
                         All
                       </button>
@@ -744,11 +737,10 @@ export default function AdminDashboard() {
                           key={opt.value}
                           type="button"
                           onClick={() => toggleMeal(opt.value)}
-                          className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-                            form.meals.includes(opt.value)
+                          className={`px-3 py-1.5 rounded-full text-xs border transition-all ${form.meals.includes(opt.value)
                               ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
                               : 'bg-black/40 border-white/15 text-white/70 hover:border-cyan-400/60'
-                          }`}
+                            }`}
                         >
                           {opt.label}
                         </button>
@@ -924,9 +916,8 @@ export default function AdminDashboard() {
                             {event.title}
                           </h3>
                           <span
-                            className={`px-2 py-1 rounded-lg text-[10px] font-medium ${
-                              statusColors[event.status] || statusColors.draft
-                            }`}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-medium ${statusColors[event.status] || statusColors.draft
+                              }`}
                           >
                             {event.status.replace('_', ' ')}
                           </span>
@@ -963,16 +954,16 @@ export default function AdminDashboard() {
                           {(event.first_prize > 0 ||
                             event.second_prize > 0 ||
                             event.third_prize > 0) && (
-                            <div className="text-xs text-emerald-300 font-medium">
-                              ₹
-                              {event.first_prize > 0
-                                ? event.first_prize.toLocaleString()
-                                : event.second_prize > 0
-                                ? event.second_prize.toLocaleString()
-                                : event.third_prize.toLocaleString()}
-                              +
-                            </div>
-                          )}
+                              <div className="text-xs text-emerald-300 font-medium">
+                                ₹
+                                {event.first_prize > 0
+                                  ? event.first_prize.toLocaleString()
+                                  : event.second_prize > 0
+                                    ? event.second_prize.toLocaleString()
+                                    : event.third_prize.toLocaleString()}
+                                +
+                              </div>
+                            )}
                         </div>
                         <div className="flex gap-2">
                           <button

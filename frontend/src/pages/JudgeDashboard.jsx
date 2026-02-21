@@ -98,7 +98,7 @@ export default function JudgeDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex">
       <aside className="w-20 lg:w-64 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
         <div className="h-20 flex items-center justify-center lg:justify-start px-6 border-b border-white/10">
-          <span className="text-purple-400 font-semibold tracking-[0.25em] text-xs lg:text-sm">END_LOOP</span>
+          <span className="text-purple-400 font-semibold tracking-[0.25em] text-xs lg:text-sm">HACK-X</span>
         </div>
         <nav className="flex-1 py-6 px-2 lg:px-4">
           <button

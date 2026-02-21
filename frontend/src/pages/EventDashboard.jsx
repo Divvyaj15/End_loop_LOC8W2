@@ -18,7 +18,7 @@ export default function EventDashboard() {
   const location = useLocation();
   const isAnnouncements = location.pathname.includes('/announcements');
   const isMessage = location.pathname.includes('/message');
-  
+
   const [event, setEvent] = useState(null);
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanMode, setScanMode] = useState('entry'); // 'entry' | 'food'
@@ -305,7 +305,7 @@ export default function EventDashboard() {
             return;
           }
         }
-      } catch (_) {}
+      } catch (_) { }
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
@@ -334,15 +334,14 @@ export default function EventDashboard() {
       <aside className="w-20 lg:w-64 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
         <div className="h-20 flex items-center justify-center lg:justify-start px-6 border-b border-white/10">
           <span className="text-cyan-400 font-semibold tracking-[0.25em] text-xs lg:text-sm">
-            END_LOOP
+            HACK-X
           </span>
         </div>
         <nav className="flex-1 py-6 space-y-2 px-2 lg:px-4">
           <button
             onClick={() => navigate(`/admin/events/${eventId}`)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${
-              !isAnnouncements && !isMessage ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
-            }`}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${!isAnnouncements && !isMessage ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
+              }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
@@ -369,9 +368,8 @@ export default function EventDashboard() {
           </button>
           <button
             onClick={() => navigate(`/admin/events/${eventId}/announcements`)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-              isAnnouncements ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
-            }`}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${isAnnouncements ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
+              }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
               <span className="text-xs">📢</span>
@@ -380,9 +378,8 @@ export default function EventDashboard() {
           </button>
           <button
             onClick={() => navigate(`/admin/events/${eventId}/message`)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-              isMessage ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
-            }`}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${isMessage ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
+              }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
               <span className="text-xs">✉</span>
@@ -406,11 +403,10 @@ export default function EventDashboard() {
           <div className="flex items-center gap-3 ml-4">
             <button
               onClick={handleScanQRClick}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                isEventDay(event)
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${isEventDay(event)
                   ? 'bg-cyan-500/90 text-white hover:bg-cyan-400 shadow-[0_4px_20px_rgba(34,211,238,0.25)]'
                   : 'border border-white/30 text-white/70 hover:bg-white/5'
-              }`}
+                }`}
             >
               Scan QRs
             </button>
@@ -455,200 +451,198 @@ export default function EventDashboard() {
           )}
           {!isAnnouncements && !isMessage && (
             <>
-          {/* Tabs */}
-          <div className="flex items-center gap-4 mb-6 border-b border-white/10">
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'analytics'
-                  ? 'border-cyan-400 text-cyan-200'
-                  : 'border-transparent text-white/50 hover:text-white/70'
-              }`}
-            >
-              Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('qr')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'qr'
-                  ? 'border-cyan-400 text-cyan-200'
-                  : 'border-transparent text-white/50 hover:text-white/70'
-              }`}
-            >
-              QR Codes
-            </button>
-          </div>
-
-          {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              {/* Key Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Tabs */}
+              <div className="flex items-center gap-4 mb-6 border-b border-white/10">
                 <button
-                  type="button"
-                  onClick={() => setShowParticipantsModal(true)}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
+                  onClick={() => setActiveTab('analytics')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'analytics'
+                      ? 'border-cyan-400 text-cyan-200'
+                      : 'border-transparent text-white/50 hover:text-white/70'
+                    }`}
                 >
-                  <div className="text-3xl font-bold text-white mb-1">{stats.totalParticipants}</div>
-                  <div className="text-xs text-white/70">Total Participants</div>
-                  <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
+                  Analytics
                 </button>
                 <button
-                  type="button"
-                  onClick={() => setShowTeamsModal(true)}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
+                  onClick={() => setActiveTab('qr')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'qr'
+                      ? 'border-cyan-400 text-cyan-200'
+                      : 'border-transparent text-white/50 hover:text-white/70'
+                    }`}
                 >
-                  <div className="text-3xl font-bold text-white mb-1">{stats.teamsRegistered}</div>
-                  <div className="text-xs text-white/70">Teams Registered</div>
-                  <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
+                  QR Codes
                 </button>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <div className="text-3xl font-bold text-white mb-1">{stats.shortlistedTeams}</div>
-                  <div className="text-xs text-white/70">Shortlisted Teams</div>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <div className="text-3xl font-bold text-white mb-1">{stats.pptSubmissions}</div>
-                  <div className="text-xs text-white/70">PPT Submissions</div>
-                </div>
               </div>
 
-              {/* QR Stats and Analytics Chart */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* QR Stats */}
-                <div className="lg:col-span-1 space-y-4">
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                    <h3 className="text-sm font-semibold mb-4">QR Statistics</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Entries Scanned</span>
-                        <span className="text-xl font-bold text-cyan-400">{qrStats.entriesScanned}</span>
+              {activeTab === 'analytics' && (
+                <div className="space-y-6">
+                  {/* Key Statistics */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowParticipantsModal(true)}
+                      className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
+                    >
+                      <div className="text-3xl font-bold text-white mb-1">{stats.totalParticipants}</div>
+                      <div className="text-xs text-white/70">Total Participants</div>
+                      <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTeamsModal(true)}
+                      className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
+                    >
+                      <div className="text-3xl font-bold text-white mb-1">{stats.teamsRegistered}</div>
+                      <div className="text-xs text-white/70">Teams Registered</div>
+                      <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
+                    </button>
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                      <div className="text-3xl font-bold text-white mb-1">{stats.shortlistedTeams}</div>
+                      <div className="text-xs text-white/70">Shortlisted Teams</div>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                      <div className="text-3xl font-bold text-white mb-1">{stats.pptSubmissions}</div>
+                      <div className="text-xs text-white/70">PPT Submissions</div>
+                    </div>
+                  </div>
+
+                  {/* QR Stats and Analytics Chart */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* QR Stats */}
+                    <div className="lg:col-span-1 space-y-4">
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                        <h3 className="text-sm font-semibold mb-4">QR Statistics</h3>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white/70">Entries Scanned</span>
+                            <span className="text-xl font-bold text-cyan-400">{qrStats.entriesScanned}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white/70">Meals Distributed</span>
+                            <span className="text-xl font-bold text-purple-400">{qrStats.mealsDistributed}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Meals Distributed</span>
-                        <span className="text-xl font-bold text-purple-400">{qrStats.mealsDistributed}</span>
+
+                      {/* Hackathon Day Stats */}
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                        <h3 className="text-sm font-semibold mb-4">Hackathon Day Stats</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white/70">Participants Attendance</span>
+                            <span className="text-lg font-semibold text-white">{dayStats.attendance}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white/70">Breakfasts Claimed</span>
+                            <span className="text-lg font-semibold text-emerald-400">{dayStats.breakfastsClaimed}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white/70">Lunches Claimed</span>
+                            <span className="text-lg font-semibold text-yellow-400">{dayStats.lunchesClaimed}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white/70">Dinners Claimed</span>
+                            <span className="text-lg font-semibold text-pink-400">{dayStats.dinnersClaimed}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Event Analytics Chart */}
+                    <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                      <h3 className="text-sm font-semibold mb-4">Event Analytics</h3>
+                      <div className="space-y-4">
+                        {[
+                          { label: 'Participants', value: stats.totalParticipants, color: 'cyan' },
+                          { label: 'Teams', value: stats.teamsRegistered, color: 'purple' },
+                          { label: 'Shortlisted Teams', value: stats.shortlistedTeams, color: 'pink' },
+                          { label: 'Submissions', value: stats.pptSubmissions, color: 'emerald' },
+                        ].map((item) => {
+                          const maxValue = Math.max(
+                            stats.totalParticipants,
+                            stats.teamsRegistered,
+                            stats.shortlistedTeams,
+                            stats.pptSubmissions,
+                            1
+                          );
+                          const percentage = (item.value / maxValue) * 100;
+                          const colorClasses = {
+                            cyan: 'bg-cyan-400',
+                            purple: 'bg-purple-400',
+                            pink: 'bg-pink-400',
+                            emerald: 'bg-emerald-400',
+                          };
+                          return (
+                            <div key={item.label} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-white/70">{item.label}</span>
+                                <span className="text-white font-semibold">{item.value}</span>
+                              </div>
+                              <div className="h-3 bg-black/40 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full ${colorClasses[item.color]} rounded-full transition-all`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
 
-                  {/* Hackathon Day Stats */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                    <h3 className="text-sm font-semibold mb-4">Hackathon Day Stats</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Participants Attendance</span>
-                        <span className="text-lg font-semibold text-white">{dayStats.attendance}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Breakfasts Claimed</span>
-                        <span className="text-lg font-semibold text-emerald-400">{dayStats.breakfastsClaimed}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Lunches Claimed</span>
-                        <span className="text-lg font-semibold text-yellow-400">{dayStats.lunchesClaimed}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Dinners Claimed</span>
-                        <span className="text-lg font-semibold text-pink-400">{dayStats.dinnersClaimed}</span>
+                  {/* Top Teams */}
+                  {topTeams.length > 0 && (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                      <h3 className="text-sm font-semibold mb-4">Top Teams</h3>
+                      <div className="space-y-3">
+                        {topTeams.map((team, index) => (
+                          <div
+                            key={team.team_id || index}
+                            className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center text-xs font-bold">
+                                #{index + 1}
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-white">
+                                  {team.team_name || 'Team ' + (index + 1)}
+                                </div>
+                                <div className="text-xs text-white/60">
+                                  {team.leader_name || 'Leader Name'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-semibold text-cyan-400">
+                                Score: {team.total_score || 0}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
+              )}
 
-                {/* Event Analytics Chart */}
-                <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h3 className="text-sm font-semibold mb-4">Event Analytics</h3>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'Participants', value: stats.totalParticipants, color: 'cyan' },
-                      { label: 'Teams', value: stats.teamsRegistered, color: 'purple' },
-                      { label: 'Shortlisted Teams', value: stats.shortlistedTeams, color: 'pink' },
-                      { label: 'Submissions', value: stats.pptSubmissions, color: 'emerald' },
-                    ].map((item) => {
-                      const maxValue = Math.max(
-                        stats.totalParticipants,
-                        stats.teamsRegistered,
-                        stats.shortlistedTeams,
-                        stats.pptSubmissions,
-                        1
-                      );
-                      const percentage = (item.value / maxValue) * 100;
-                      const colorClasses = {
-                        cyan: 'bg-cyan-400',
-                        purple: 'bg-purple-400',
-                        pink: 'bg-pink-400',
-                        emerald: 'bg-emerald-400',
-                      };
-                      return (
-                        <div key={item.label} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-white/70">{item.label}</span>
-                            <span className="text-white font-semibold">{item.value}</span>
-                          </div>
-                          <div className="h-3 bg-black/40 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${colorClasses[item.color]} rounded-full transition-all`}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Top Teams */}
-              {topTeams.length > 0 && (
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h3 className="text-sm font-semibold mb-4">Top Teams</h3>
-                  <div className="space-y-3">
-                    {topTeams.map((team, index) => (
-                      <div
-                        key={team.team_id || index}
-                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center text-xs font-bold">
-                            #{index + 1}
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-white">
-                              {team.team_name || 'Team ' + (index + 1)}
-                            </div>
-                            <div className="text-xs text-white/60">
-                              {team.leader_name || 'Leader Name'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-cyan-400">
-                            Score: {team.total_score || 0}
-                          </div>
-                        </div>
+              {activeTab === 'qr' && (
+                <div className="space-y-6">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                    <h3 className="text-sm font-semibold mb-4">QR Code Statistics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-black/40 rounded-xl border border-white/10">
+                        <div className="text-2xl font-bold text-cyan-400 mb-1">{qrStats.entriesScanned}</div>
+                        <div className="text-xs text-white/70">Entries Scanned</div>
                       </div>
-                    ))}
+                      <div className="p-4 bg-black/40 rounded-xl border border-white/10">
+                        <div className="text-2xl font-bold text-purple-400 mb-1">{qrStats.mealsDistributed}</div>
+                        <div className="text-xs text-white/70">Meals Distributed</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {activeTab === 'qr' && (
-            <div className="space-y-6">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h3 className="text-sm font-semibold mb-4">QR Code Statistics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-black/40 rounded-xl border border-white/10">
-                    <div className="text-2xl font-bold text-cyan-400 mb-1">{qrStats.entriesScanned}</div>
-                    <div className="text-xs text-white/70">Entries Scanned</div>
-                  </div>
-                  <div className="p-4 bg-black/40 rounded-xl border border-white/10">
-                    <div className="text-2xl font-bold text-purple-400 mb-1">{qrStats.mealsDistributed}</div>
-                    <div className="text-xs text-white/70">Meals Distributed</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
             </>
           )}
         </section>

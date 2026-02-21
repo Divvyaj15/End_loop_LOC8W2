@@ -7,8 +7,11 @@ import EventDashboard from './pages/EventDashboard';
 import ManageEvent from './pages/ManageEvent';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentEventDetail from './pages/StudentEventDetail';
+import StudentEventDashboard from './pages/StudentEventDashboard';
 import StudentMyEvents from './pages/StudentMyEvents';
-import StudentPlaceholder from './pages/StudentPlaceholder';
+import StudentTeams from './pages/StudentTeams';
+import StudentQRCodes from './pages/StudentQRCodes';
+import StudentAnnouncements from './pages/StudentAnnouncements';
 import StudentProfile from './pages/StudentProfile';
 import JudgeDashboard from './pages/JudgeDashboard';
 import JudgeScoreTeam from './pages/JudgeScoreTeam';
@@ -39,9 +42,12 @@ function App() {
         {/* Student */}
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/my-events" element={<StudentMyEvents />} />
-        <Route path="/student/announcements" element={<StudentPlaceholder title="Announcements" />} />
+        <Route path="/student/teams" element={<StudentTeams />} />
+        <Route path="/student/qr-codes" element={<StudentQRCodes />} />
+        <Route path="/student/announcements" element={<StudentAnnouncements />} />
         <Route path="/student/profile" element={<StudentProfile />} />
         <Route path="/student/events/:eventId" element={<StudentEventDetail />} />
+        <Route path="/student/events/:eventId/dashboard" element={<StudentEventDashboard />} />
       </Routes>
     </Router>
   );

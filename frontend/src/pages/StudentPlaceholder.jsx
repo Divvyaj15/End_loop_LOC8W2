@@ -31,7 +31,7 @@ export default function StudentPlaceholder({ title = 'Page' }) {
     <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex">
       <aside className="w-20 lg:w-56 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
         <div className="h-20 flex items-center justify-center lg:justify-start px-4 border-b border-white/10">
-          <span className="text-cyan-400 font-semibold tracking-[0.2em] text-xs lg:text-sm">END_LOOP</span>
+          <span className="text-cyan-400 font-semibold tracking-[0.2em] text-xs lg:text-sm">HACK-X</span>
         </div>
         <nav className="flex-1 py-6 space-y-1 px-2 lg:px-3">
           {SIDEBAR_ITEMS.map((item) => (
@@ -39,8 +39,7 @@ export default function StudentPlaceholder({ title = 'Page' }) {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                  isActive ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200' : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${isActive ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200' : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
                 }`
               }
             >

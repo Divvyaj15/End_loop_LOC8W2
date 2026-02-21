@@ -103,7 +103,7 @@ export default function ManageEvent() {
       if (teamsRes.data.success) {
         const teams = teamsRes.data.data || [];
         setRegisteredTeams(teams);
-        
+
         // Get scores for teams
         const leaderboardRes = await shortlistAPI.getLeaderboard(eventId);
         if (leaderboardRes.data.success) {
@@ -427,17 +427,16 @@ export default function ManageEvent() {
       <aside className="w-20 lg:w-64 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
         <div className="h-20 flex items-center justify-center lg:justify-start px-6 border-b border-white/10">
           <span className="text-cyan-400 font-semibold tracking-[0.25em] text-xs lg:text-sm">
-            END_LOOP
+            HACK-X
           </span>
         </div>
         <nav className="flex-1 py-6 space-y-2 px-2 lg:px-4">
           <button
             onClick={() => setActiveSection('manage')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-              activeSection === 'manage'
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${activeSection === 'manage'
                 ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-200'
                 : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
-            }`}
+              }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
@@ -446,11 +445,10 @@ export default function ManageEvent() {
           </button>
           <button
             onClick={() => setActiveSection('ppt')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-              activeSection === 'ppt'
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${activeSection === 'ppt'
                 ? 'bg-purple-500/20 border border-purple-400/50 text-purple-200'
                 : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
-            }`}
+              }`}
           >
             <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
@@ -516,126 +514,126 @@ export default function ManageEvent() {
             <div className="max-w-7xl mx-auto space-y-6">
               {/* Registered Teams */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Registered Teams</h2>
-                <button
-                  onClick={handleShortlistTeams}
-                  disabled={actionLoading || registeredTeams.length === 0}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-xs font-semibold shadow-[0_4px_20px_rgba(34,211,238,0.4)] hover:from-cyan-300 hover:to-cyan-500 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {actionLoading ? 'Processing...' : 'Shortlist Teams'}
-                </button>
-              </div>
-              {registeredTeams.length === 0 ? (
-                <div className="text-white/40 text-sm py-8 text-center">
-                  No registered teams yet
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {registeredTeams.map((team) => (
-                    <div
-                      key={team.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedTeam(team)}
-                      onKeyDown={(e) => e.key === 'Enter' && setSelectedTeam(team)}
-                      className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="text-sm font-semibold text-white">
-                          {team.team_name}
-                        </div>
-                        <div className="text-xs text-white/60">
-                          {getTeamMembers(team)}
-                        </div>
-                      </div>
-                      <div className="text-xs text-white/70">
-                        Score: {team.score !== null ? team.score : 'N/A'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              </div>
-
-              {/* Shortlisted Teams */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Shortlisted Teams</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Registered Teams</h2>
                   <button
-                    onClick={handleMoveToGrandFinale}
-                    disabled={actionLoading || shortlistedTeams.length === 0}
-                    className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                    onClick={handleShortlistTeams}
+                    disabled={actionLoading || registeredTeams.length === 0}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-xs font-semibold shadow-[0_4px_20px_rgba(34,211,238,0.4)] hover:from-cyan-300 hover:to-cyan-500 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Move to Grand Finale
-                  </button>
-                  <button
-                    onClick={handleSendQRs}
-                    disabled={actionLoading || shortlistedTeams.length === 0}
-                    className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
-                  >
-                    Send QRs
+                    {actionLoading ? 'Processing...' : 'Shortlist Teams'}
                   </button>
                 </div>
-              </div>
-              {shortlistedTeams.length === 0 ? (
-                <div className="text-white/40 text-sm py-8 text-center">
-                  No shortlisted teams yet. Click "Shortlist Teams" to shortlist registered teams.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {shortlistedTeams.map((item) => {
-                    const team = item.teams || {};
-                    return (
+                {registeredTeams.length === 0 ? (
+                  <div className="text-white/40 text-sm py-8 text-center">
+                    No registered teams yet
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {registeredTeams.map((team) => (
                       <div
-                        key={item.team_id || team.id}
-                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                        key={team.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedTeam(team)}
+                        onKeyDown={(e) => e.key === 'Enter' && setSelectedTeam(team)}
+                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
                           <div className="text-sm font-semibold text-white">
-                            {team.team_name || `Team ${item.rank || ''}`}
+                            {team.team_name}
                           </div>
                           <div className="text-xs text-white/60">
                             {getTeamMembers(team)}
                           </div>
                         </div>
                         <div className="text-xs text-white/70">
-                          Score: {judgeScoreByTeamId[(item.teams || {}).id] != null ? judgeScoreByTeamId[(item.teams || {}).id] : 'N/A'}
+                          Score: {team.score !== null ? team.score : 'N/A'}
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Shortlisted Teams */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Shortlisted Teams</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleMoveToGrandFinale}
+                      disabled={actionLoading || shortlistedTeams.length === 0}
+                      className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                    >
+                      Move to Grand Finale
+                    </button>
+                    <button
+                      onClick={handleSendQRs}
+                      disabled={actionLoading || shortlistedTeams.length === 0}
+                      className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                    >
+                      Send QRs
+                    </button>
+                  </div>
                 </div>
-              )}
+                {shortlistedTeams.length === 0 ? (
+                  <div className="text-white/40 text-sm py-8 text-center">
+                    No shortlisted teams yet. Click "Shortlist Teams" to shortlist registered teams.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {shortlistedTeams.map((item) => {
+                      const team = item.teams || {};
+                      return (
+                        <div
+                          key={item.team_id || team.id}
+                          className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="text-sm font-semibold text-white">
+                              {team.team_name || `Team ${item.rank || ''}`}
+                            </div>
+                            <div className="text-xs text-white/60">
+                              {getTeamMembers(team)}
+                            </div>
+                          </div>
+                          <div className="text-xs text-white/70">
+                            Score: {judgeScoreByTeamId[(item.teams || {}).id] != null ? judgeScoreByTeamId[(item.teams || {}).id] : 'N/A'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Grand Finale Teams */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Grand Finale Teams:</h2>
-              </div>
-              {grandFinaleTeams.length === 0 ? (
-                <div className="text-white/40 text-sm py-8 text-center">
-                  No grand finale teams yet
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Grand Finale Teams:</h2>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {grandFinaleTeams.map((item) => {
-                    const team = item.teams || {};
-                    return (
-                      <div
-                        key={item.team_id || team.id}
-                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
-                      >
-                        <div className="text-sm font-semibold text-white">
-                          {team.team_name || `Team ${item.rank || ''}`}
+                {grandFinaleTeams.length === 0 ? (
+                  <div className="text-white/40 text-sm py-8 text-center">
+                    No grand finale teams yet
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {grandFinaleTeams.map((item) => {
+                      const team = item.teams || {};
+                      return (
+                        <div
+                          key={item.team_id || team.id}
+                          className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10 hover:border-cyan-400/50 transition-colors"
+                        >
+                          <div className="text-sm font-semibold text-white">
+                            {team.team_name || `Team ${item.rank || ''}`}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -738,11 +736,10 @@ export default function ManageEvent() {
                         <button
                           key={j.id}
                           onClick={() => setSelectedJudgeForAssign(selectedJudgeForAssign?.id === j.id ? null : j)}
-                          className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
-                            selectedJudgeForAssign?.id === j.id
+                          className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${selectedJudgeForAssign?.id === j.id
                               ? 'bg-amber-500/30 border-amber-400 text-amber-200'
                               : 'bg-black/40 border-white/20 text-white/70 hover:border-amber-400/60'
-                          }`}
+                            }`}
                         >
                           {j.first_name} {j.last_name}
                         </button>

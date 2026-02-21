@@ -70,7 +70,11 @@ export const eventAPI = {
 export const teamAPI = {
   getMyTeams: () => api.get('/teams/my-teams'),
   getTeamsByEvent: (eventId) => api.get(`/teams/event/${eventId}`),
+  getTeamById: (teamId) => api.get(`/teams/${teamId}`),
   createTeam: (data) => api.post('/teams', data),
+  acceptInvite: (teamId) => api.post(`/teams/${teamId}/accept`),
+  declineInvite: (teamId) => api.post(`/teams/${teamId}/decline`),
+  deleteTeam: (teamId) => api.delete(`/teams/${teamId}`),
 };
 
 // Submissions API
@@ -100,6 +104,7 @@ export const qrAPI = {
   getAttendance: (eventId) => api.get(`/qr/attendance/${eventId}`),
   generateEntryQRs: (eventId) => api.post(`/qr/generate/${eventId}`),
   scanEntry: (qrToken) => api.post('/qr/scan', { qrToken }),
+  getMyQr: (eventId) => api.get(`/qr/my-qr/${eventId}`),
 };
 
 // Food QR API
@@ -108,6 +113,7 @@ export const foodQrAPI = {
   lookupFood: (qrToken) => api.post('/food-qr/lookup', { qrToken }),
   scanFood: (qrToken) => api.post('/food-qr/scan', { qrToken }),
   getFoodQRsForUser: (eventId, userId) => api.get(`/food-qr/event/${eventId}/user/${userId}`),
+  getMyMeals: (eventId) => api.get(`/food-qr/my-meals/${eventId}`),
 };
 
 // Judges API (admin + judge)
@@ -124,6 +130,23 @@ export const judgeAPI = {
   getMyEvents: () => api.get('/judges/my-events'),
   getMyAssignedTeams: (eventId) => api.get(`/judges/my-teams/${eventId}`),
   scoreTeam: (data) => api.post('/judges/score', data),
+};
+
+// Hackathon Submissions API
+export const hackathonSubmissionAPI = {
+  submitHackathonProject: (data) => api.post('/hackathon-submissions', data),
+  getTeamHackathonSubmission: (teamId) => api.get(`/hackathon-submissions/team/${teamId}`),
+  getSubmissionsForJudge: (eventId) => api.get(`/hackathon-submissions/judge/${eventId}`),
+  getAllHackathonSubmissions: (eventId) => api.get(`/hackathon-submissions/event/${eventId}`),
+  lockHackathonSubmissions: (eventId) => api.patch(`/hackathon-submissions/lock/${eventId}`),
+};
+
+// Submissions (PPT) API specific calls missing from before
+export const pptSubmissionAPI = {
+  submitPPT: (data) => api.post('/submissions', data),
+  getTeamSubmission: (teamId) => api.get(`/submissions/team/${teamId}`),
+  getSubmissionsByEvent: (eventId) => api.get(`/submissions/event/${eventId}`),
+  getProblemStatement: (eventId) => api.get(`/submissions/event/${eventId}/problem-statement`),
 };
 
 export default api;

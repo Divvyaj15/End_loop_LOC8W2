@@ -11,6 +11,7 @@ import shortlistRoutes      from "./routes/shortlist.routes.js";
 import qrRoutes             from "./routes/qr.routes.js";
 import foodQrRoutes         from "./routes/foodQr.routes.js";
 import announcementRoutes   from "./routes/announcement.routes.js";
+import judgeRoutes          from "./routes/judge.routes.js";
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use("/api/shortlist",      shortlistRoutes);
 app.use("/api/qr",             qrRoutes);
 app.use("/api/food-qr",        foodQrRoutes);
 app.use("/api/announcements",  announcementRoutes);
+app.use("/api/judges",         judgeRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });

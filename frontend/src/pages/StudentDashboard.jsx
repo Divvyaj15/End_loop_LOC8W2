@@ -1,338 +1,127 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
-import { eventAPI, teamAPI } from '../services/api';
+import { useState } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { IconTeams, IconHackathons, IconQR, IconMenu, IconLive, IconEvents } from '../components/SidebarIcons';
 
-const SIDEBAR_ITEMS = [
-  { to: '/student/dashboard', label: 'Dashboard', icon: '🏠' },
-  { to: '/student/my-events', label: 'My Events', icon: '📅' },
-  { to: '/student/announcements', label: 'Announcements', icon: '📢' },
-  { to: '/student/profile', label: 'Profile', icon: '👤' },
+const navItems = [
+  { path: 'hackathons', label: 'Hackathons', Icon: IconHackathons },
+  { path: 'events', label: 'Events', Icon: IconEvents },
+  { path: 'teams', label: 'Teams', Icon: IconTeams },
+  { path: 'qrs', label: 'QRs', Icon: IconQR },
+  { path: 'events/dashboard', label: 'Event Dashboard', Icon: IconEvents },
 ];
-
-const CARD_GRADIENTS = [
-  'from-cyan-600/40 via-blue-900/50 to-slate-900',
-  'from-violet-600/40 via-purple-900/50 to-slate-900',
-  'from-emerald-600/40 via-teal-900/50 to-slate-900',
-];
-
-function formatEventDate(start, end) {
-  if (!start || !end) return 'Date TBA';
-  const s = new Date(start);
-  const e = new Date(end);
-  const opts = { month: 'short', day: 'numeric', year: '2-digit' };
-  return `${s.toLocaleDateString('en-IN', opts)} – ${e.toLocaleDateString('en-IN', opts)}`;
-}
-
-function isUpcoming(event) {
-  const end = event?.end_date;
-  if (!end) return true;
-  const today = new Date().toISOString().slice(0, 10);
-  return end >= today;
-}
-
-/** Only show in "Upcoming" if registration is still open */
-function isRegistrationOpen(event) {
-  const status = (event?.status || '').toLowerCase();
-  const open = status === 'registration_open' || status === 'register_open';
-  if (!open) return false;
-  const deadline = event?.registration_deadline;
-  if (!deadline) return true;
-  const today = new Date().toISOString().slice(0, 10);
-  return deadline >= today;
-}
 
 export default function StudentDashboard() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [myTeams, setMyTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const registeredEventIds = new Set(
-    (myTeams || [])
-      .map((t) => t.teams?.event_id)
-      .filter(Boolean)
-  );
-
-  useEffect(() => {
-    const raw = localStorage.getItem('user');
-    if (!raw) {
-      navigate('/login', { replace: true });
-      return;
-    }
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [user, setUser] = useState(() => {
     try {
-      setUser(JSON.parse(raw));
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
     } catch {
-      navigate('/login', { replace: true });
-      return;
+      return null;
     }
-  }, [navigate]);
+  });
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    setLoading(true);
-    setError('');
-    Promise.all([
-      eventAPI.getEvents().then((r) => (r.data?.success ? r.data.data : [])),
-      teamAPI.getMyTeams().then((r) => (r.data?.success ? r.data.data : [])),
-    ])
-      .then(([eventList, teams]) => {
-        if (cancelled) return;
-        setEvents(Array.isArray(eventList) ? eventList : []);
-        setMyTeams(Array.isArray(teams) ? teams : []);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.response?.data?.message || 'Failed to load events.');
-          setEvents([]);
-          setMyTeams([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [user]);
-
-  // Show all events that haven't ended in Upcoming; use registration status only for the Register button
-  const upcoming = events.filter(isUpcoming);
-  const past = events.filter((e) => !isUpcoming(e));
-
-  const handleRegister = (eventId) => {
-    navigate(`/student/events/${eventId}`);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
   };
-
-  const handleViewEvent = (eventId) => {
-    navigate(`/student/events/${eventId}`);
-  };
-
-  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex">
       {/* Sidebar */}
-      <aside className="w-20 lg:w-56 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
-        <div className="h-20 flex items-center justify-center lg:justify-start px-4 border-b border-white/10">
-          <span className="text-cyan-400 font-semibold tracking-[0.2em] text-xs lg:text-sm">
-            END_LOOP
-          </span>
+      <aside
+        className={`${
+          sidebarOpen ? 'w-56 lg:w-64' : 'w-20'
+        } bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col transition-all duration-300`}
+      >
+        <div className="h-20 flex items-center justify-between px-4 border-b border-white/10">
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="flex items-center gap-2 uppercase text-white/90 text-sm font-medium tracking-wider hover:text-white transition-colors"
+            aria-label="Toggle menu"
+          >
+            <IconMenu className="w-5 h-5" />
+            {sidebarOpen && <span>menu</span>}
+          </button>
+          {sidebarOpen && (
+            <span className="text-cyan-400 font-semibold tracking-[0.2em] text-xs">
+              END_LOOP
+            </span>
+          )}
+          
         </div>
-        <nav className="flex-1 py-6 space-y-1 px-2 lg:px-3 overflow-y-auto">
-          {SIDEBAR_ITEMS.map((item) => (
+        <nav className="flex-1 py-6 space-y-2 px-3 overflow-y-auto">
+          {navItems.map((item) => (
             <NavLink
-              key={item.to}
-              to={item.to}
+              key={item.path}
+              to={item.path}
+              end={item.path === 'hackathons'}
               className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                  isActive
-                    ? 'bg-cyan-500/20 border border-cyan-400/40 text-cyan-200'
-                    : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+                  item.isLive
+                    ? isActive
+                      ? 'bg-red-500/20 border border-red-400/60 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                      : 'text-red-400/80 hover:bg-red-500/10 hover:text-red-300'
+                    : isActive
+                    ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200'
+                    : 'border border-transparent text-white/70 hover:bg-white/5 hover:text-white/90'
                 }`
               }
             >
-              <span className="text-lg w-8 flex items-center justify-center">{item.icon}</span>
-              <span className="hidden lg:inline">{item.label}</span>
+              <span className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 text-current group-hover:scale-110 group-hover:bg-white/15 transition-transform">
+                <item.Icon className="w-4 h-4" />
+              </span>
+              {sidebarOpen && (
+                <span className="text-sm font-medium truncate">{item.label}</span>
+              )}
             </NavLink>
           ))}
         </nav>
-        <div className="pt-4 border-t border-white/10 px-2 lg:px-3 pb-4">
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              navigate('/login');
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/15 text-white/50 hover:bg-white/5 hover:text-white text-sm transition-colors"
-          >
-            <span className="text-lg w-8 flex items-center justify-center">⎋</span>
-            <span className="hidden lg:inline">Log out</span>
-          </button>
-        </div>
       </aside>
 
-      {/* Main */}
+      {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 px-4 lg:px-8 flex items-center justify-between border-b border-white/10 bg-black/30 backdrop-blur-xl shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              aria-label="Back"
+        <header className="h-20 px-6 lg:px-10 flex items-center justify-between border-b border-white/10 bg-black/30 backdrop-blur-xl flex-shrink-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-white/70 hover:text-white transition-colors p-1"
+            aria-label="Back"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span className="text-white/90 font-medium">End_Loop&apos;s WorkSpace</span>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
+          </button>
+          <h1 className="text-lg font-semibold text-white/90">
+            End_Loop&apos;s WorkSpace
+          </h1>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                navigate('/login');
-              }}
-              className="px-3 py-1.5 rounded-lg border border-white/20 text-white/70 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
-            >
-              Log out
-            </button>
-            <span className="text-sm text-white/80 hidden sm:inline">
-              Hello, {user.first_name || user.email?.split('@')[0] || 'Student'}
+            <span className="text-sm text-white/80">
+              Hello, {user?.first_name || user?.email?.split('@')[0] || 'User'}
             </span>
-            <div className="w-9 h-9 rounded-full bg-cyan-500/30 border border-cyan-400/50 flex items-center justify-center text-cyan-200 font-semibold">
-              {(user.first_name || 'U').charAt(0).toUpperCase()}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 border border-white/20 flex items-center justify-center overflow-hidden">
+              {user?.first_name?.[0] && (
+                <span className="text-white font-semibold">
+                  {user.first_name[0]}
+                </span>
+              )}
             </div>
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto p-4 lg:p-8">
-          {error && (
-            <div className="mb-4 bg-red-500/15 border border-red-400/60 text-red-100 text-sm px-4 py-3 rounded-xl">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-10 h-10 border-2 border-cyan-400/50 border-t-cyan-400 rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              <h2 className="text-2xl font-bold text-white mb-6">Upcoming Events</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-12">
-                {upcoming.length === 0 ? (
-                  <p className="text-white/50 col-span-full py-8 text-center">No upcoming events.</p>
-                ) : (
-                  upcoming.map((event, i) => {
-                    const registered = registeredEventIds.has(event.id);
-                    const gradient = CARD_GRADIENTS[i % CARD_GRADIENTS.length];
-                    return (
-                      <div
-                        key={event.id}
-                        className={`rounded-2xl border border-white/10 overflow-hidden bg-gradient-to-br ${gradient} shadow-[0_18px_60px_rgba(0,0,0,0.4)] hover:border-cyan-400/30 transition-colors`}
-                      >
-                        <div className="aspect-[4/2] relative bg-black/30">
-                          {event.banner_url ? (
-                            <img
-                              src={event.banner_url}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover opacity-80"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-4xl font-bold text-white/20">
-                                {(event.title || 'Event').slice(0, 2)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-5">
-                          <h3 className="text-lg font-semibold text-white mb-1">{event.title}</h3>
-                          <p className="text-sm text-white/60 mb-4">
-                            {formatEventDate(event.start_date, event.end_date)}
-                          </p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {registered ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleViewEvent(event.id)}
-                                  className="px-4 py-2 rounded-xl bg-cyan-500/90 text-white text-sm font-medium hover:bg-cyan-400 transition-colors"
-                                >
-                                  View
-                                </button>
-                                <span className="text-xs text-cyan-300 border border-cyan-500/40 rounded-full px-3 py-1">
-                                  Registered
-                                </span>
-                              </>
-                            ) : isRegistrationOpen(event) ? (
-                              <button
-                                type="button"
-                                onClick={() => handleRegister(event.id)}
-                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-white text-sm font-semibold shadow-[0_4px_20px_rgba(34,211,238,0.3)] hover:from-cyan-300 hover:to-cyan-500 transition-all"
-                              >
-                                Register
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleViewEvent(event.id)}
-                                  className="px-4 py-2 rounded-xl border border-white/30 text-white/80 text-sm font-medium hover:bg-white/5 transition-colors"
-                                >
-                                  View
-                                </button>
-                                <span className="text-xs text-amber-300/90 border border-amber-500/40 rounded-full px-3 py-1">
-                                  Registration closed
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              <h2 className="text-2xl font-bold text-white mb-6">Past Events</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {past.length === 0 ? (
-                  <p className="text-white/50 col-span-full py-8 text-center">No past events.</p>
-                ) : (
-                  past.map((event, i) => {
-                    const registered = registeredEventIds.has(event.id);
-                    const gradient = CARD_GRADIENTS[i % CARD_GRADIENTS.length];
-                    return (
-                      <div
-                        key={event.id}
-                        className={`rounded-2xl border border-white/10 overflow-hidden bg-gradient-to-br ${gradient} opacity-90 shadow-[0_18px_60px_rgba(0,0,0,0.4)]`}
-                      >
-                        <div className="aspect-[4/2] relative bg-black/30">
-                          {event.banner_url ? (
-                            <img
-                              src={event.banner_url}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover opacity-70"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-4xl font-bold text-white/20">
-                                {(event.title || 'Event').slice(0, 2)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-5">
-                          <h3 className="text-lg font-semibold text-white mb-1">{event.title}</h3>
-                          <p className="text-sm text-white/60 mb-4">
-                            {formatEventDate(event.start_date, event.end_date)}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleViewEvent(event.id)}
-                              className="px-4 py-2 rounded-xl border border-cyan-400/50 text-cyan-300 text-sm font-medium hover:bg-cyan-500/20 transition-colors"
-                            >
-                              View
-                            </button>
-                            {registered && (
-                              <span className="text-xs text-white/50">You participated</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </>
-          )}
+        <section className="flex-1 overflow-y-auto p-6 lg:p-10">
+          <Outlet />
         </section>
       </main>
     </div>

@@ -1,725 +1,527 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventAPI, teamAPI, submissionAPI, shortlistAPI, qrAPI, foodQrAPI } from '../services/api';
+import { eventAPI, teamsAPI, submissionsAPI, announcementsAPI } from '../services/api';
 
-function isEventDay(event) {
-  if (!event?.start_date || !event?.end_date) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  const start = event.start_date.slice(0, 10);
-  const end = event.end_date.slice(0, 10);
-  return today >= start && today <= end;
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatDateTime(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function useCountdown(deadline) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!deadline) return;
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [deadline]);
+
+  return useMemo(() => {
+    if (!deadline) return { finished: true, parts: null, totalMs: 0 };
+    const end = new Date(deadline);
+    const diff = end.getTime() - now.getTime();
+    if (diff <= 0) {
+      return { finished: true, parts: null, totalMs: diff };
+    }
+    const totalSeconds = Math.floor(diff / 1000);
+    const days = Math.floor(totalSeconds / (24 * 3600));
+    const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return {
+      finished: false,
+      totalMs: diff,
+      parts: { days, hours, minutes, seconds },
+    };
+  }, [deadline, now]);
+}
+
+function TimelineItem({ title, date, isActive, isCompleted }) {
+  return (
+    <div className="relative pl-6">
+      <div className={`absolute -left-2 w-4 h-4 rounded-full border-2 ${
+        isCompleted 
+          ? 'bg-emerald-500 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.6)]' 
+          : isActive 
+            ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.6)]'
+            : 'bg-white/20 border-white/40'
+      }`} />
+      <div className={`absolute left-0 top-2 w-px h-full ${
+        isCompleted ? 'bg-emerald-400/30' : 'bg-white/10'
+      }`} />
+      <div className="pb-6">
+        <p className={`text-sm font-medium ${
+          isCompleted ? 'text-emerald-300' : isActive ? 'text-cyan-300' : 'text-white/60'
+        }`}>
+          {title}
+        </p>
+        <p className="text-xs text-white/50 mt-1">{date}</p>
+      </div>
+    </div>
+  );
 }
 
 export default function EventDashboard() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  
   const [event, setEvent] = useState(null);
-  const [showScanModal, setShowScanModal] = useState(false);
-  const [eventNotStartedMessage, setEventNotStartedMessage] = useState(false);
-  const [scanResult, setScanResult] = useState(null);
-  const [scanning, setScanning] = useState(false);
-  const [showParticipantsModal, setShowParticipantsModal] = useState(false);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const lastScannedTokenRef = useRef({ token: null, at: 0 });
-  const SCAN_COOLDOWN_MS = 3000;
-  const [stats, setStats] = useState({
-    totalParticipants: 0,
-    teamsRegistered: 0,
-    shortlistedTeams: 0,
-    pptSubmissions: 0,
-  });
-  const [qrStats, setQrStats] = useState({
-    entriesScanned: 0,
-    mealsDistributed: 0,
-  });
-  const [dayStats, setDayStats] = useState({
-    attendance: 0,
-    breakfastsClaimed: 0,
-    lunchesClaimed: 0,
-    dinnersClaimed: 0,
-  });
-  const [teams, setTeams] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
-  const [pendingSubmissions, setPendingSubmissions] = useState([]);
-  const [topTeams, setTopTeams] = useState([]);
+  const [team, setTeam] = useState(null);
+  const [submission, setSubmission] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    fetchEventData();
-  }, [eventId]);
-
-  const fetchEventData = async () => {
-    setLoading(true);
+  const user = useMemo(() => {
     try {
-      // Fetch all data in parallel
-      const [
-        eventRes,
-        teamsRes,
-        submissionsRes,
-        shortlistedRes,
-        attendanceRes,
-        foodReportRes,
-        leaderboardRes,
-      ] = await Promise.all([
-        eventAPI.getEventById(eventId),
-        teamAPI.getTeamsByEvent(eventId),
-        submissionAPI.getSubmissionsByEvent(eventId),
-        shortlistAPI.getShortlistedTeams(eventId),
-        qrAPI.getAttendance(eventId),
-        foodQrAPI.getFoodReport(eventId),
-        shortlistAPI.getLeaderboard(eventId),
-      ]);
-
-      // Set event data
-      if (eventRes.data.success) {
-        setEvent(eventRes.data.data);
-      }
-
-      // Calculate stats
-      const teamsData = teamsRes.data.success ? teamsRes.data.data : [];
-      const submissionsData = submissionsRes.data.success ? submissionsRes.data.data : [];
-      const shortlistedData = shortlistedRes.data.success ? shortlistedRes.data.data : [];
-      const attendanceData = attendanceRes.data.success ? attendanceRes.data.summary : {};
-      const foodData = foodReportRes.data.success ? foodReportRes.data.summary : {};
-      const leaderboardData = leaderboardRes.data.success ? leaderboardRes.data.data : [];
-
-      // Calculate total participants from teams (include both 'leader' and 'accepted')
-      let totalParticipants = 0;
-      teamsData.forEach((team) => {
-        if (team.team_members && Array.isArray(team.team_members)) {
-          totalParticipants += team.team_members.filter(
-            (member) => member.status === 'accepted' || member.status === 'leader'
-          ).length;
-        }
-      });
-
-      // Set stats
-      setStats({
-        totalParticipants,
-        teamsRegistered: teamsData.length,
-        shortlistedTeams: shortlistedData.length,
-        pptSubmissions: submissionsData.length,
-      });
-
-      // Set QR stats
-      const totalScanned = attendanceData.reportedTeams || 0;
-      const mealsConsumed = Object.values(foodData).reduce(
-        (sum, meal) => sum + (meal.consumed || 0),
-        0
-      );
-      setQrStats({
-        entriesScanned: totalScanned,
-        mealsDistributed: mealsConsumed,
-      });
-
-      // Set day stats
-      const breakfasts = foodData.breakfast?.consumed || 0;
-      const lunches = foodData.lunch?.consumed || 0;
-      const dinners = foodData.dinner?.consumed || 0;
-      setDayStats({
-        attendance: totalScanned,
-        breakfastsClaimed: breakfasts,
-        lunchesClaimed: lunches,
-        dinnersClaimed: dinners,
-      });
-
-      // Set teams and submissions
-      setTeams(teamsData);
-      setSubmissions(submissionsData);
-      setPendingSubmissions(
-        submissionsData.filter((sub) => !sub.is_reviewed || sub.status === 'pending')
-      );
-
-      // Set top teams from leaderboard
-      setTopTeams(leaderboardData.slice(0, 3));
-    } catch (err) {
-      console.error('Failed to fetch event data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const handleScanQRClick = () => {
-    if (!event) return;
-    if (!isEventDay(event)) {
-      setEventNotStartedMessage(true);
-      return;
-    }
-    setEventNotStartedMessage(false);
-    setScanResult(null);
-    setShowScanModal(true);
-  };
-
-  const closeScanModal = useCallback(() => {
-    setShowScanModal(false);
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
     }
   }, []);
 
-  const submitScannedToken = useCallback(async (token) => {
-    if (!token || scanning) return;
-    const now = Date.now();
-    if (lastScannedTokenRef.current.token === token && now - lastScannedTokenRef.current.at < SCAN_COOLDOWN_MS) return;
-    lastScannedTokenRef.current = { token, at: now };
-    setScanning(true);
-    setScanResult(null);
-    try {
-      const res = await qrAPI.scanEntry(token);
-      const data = res.data?.data;
-      setScanResult({
-        success: true,
-        message: res.data?.message || 'Entry recorded!',
-        student: data?.student,
-        team: data?.team,
-      });
-      fetchEventData();
-    } catch (err) {
-      setScanResult({
-        success: false,
-        message: err.response?.data?.message || 'Invalid or already used QR code.',
-      });
-    } finally {
-      setScanning(false);
-    }
-  }, [eventId, scanning]);
-
   useEffect(() => {
-    if (!showScanModal || !event || !videoRef.current) return;
-    let cancelled = false;
-    const video = videoRef.current;
-    const startCamera = async () => {
+    const load = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
+        setError('');
+        const [eventRes, teamsRes, announcementsRes] = await Promise.all([
+          eventAPI.getEventById(eventId),
+          teamsAPI.getMyTeams(),
+          announcementsAPI.getByEvent(eventId),
+        ]);
+
+        if (eventRes.data.success) {
+          setEvent(eventRes.data.data);
         }
-        streamRef.current = stream;
-        video.srcObject = stream;
-        await video.play();
-      } catch (e) {
-        if (!cancelled) setScanResult({ success: false, message: 'Camera access denied or unavailable.' });
-      }
-    };
-    startCamera();
-    return () => {
-      cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-      }
-    };
-  }, [showScanModal, event]);
 
-  useEffect(() => {
-    if (!showScanModal || !event || scanning) return;
-    const video = videoRef.current;
-    if (!video || !video.srcObject) return;
-    const BarcodeDetector = window.BarcodeDetector;
-    if (!BarcodeDetector) return;
-    const detector = new BarcodeDetector({ formats: ['qr_code'] });
-    let rafId;
-    const tick = async () => {
-      if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-      try {
-        const barcodes = await detector.detect(video);
-        if (barcodes.length > 0 && barcodes[0].rawValue) {
-          const raw = barcodes[0].rawValue;
-          try {
-            const parsed = JSON.parse(raw);
-            const token = parsed?.token || raw;
-            if (token) {
-              submitScannedToken(token);
-              return;
-            }
-          } catch {
-            submitScannedToken(raw);
+        const teams = teamsRes.data.success && Array.isArray(teamsRes.data.data) ? teamsRes.data.data : [];
+        const myTeamRow = teams.find((t) => t.teams?.event_id === eventId);
+        if (myTeamRow?.teams?.id) {
+          const teamRes = await teamsAPI.getTeamById(myTeamRow.teams.id);
+          if (teamRes.data.success) {
+            setTeam(teamRes.data.data);
           }
         }
-      } catch (_) {}
-      rafId = requestAnimationFrame(tick);
+
+        if (announcementsRes.data.success && Array.isArray(announcementsRes.data.data)) {
+          setAnnouncements(announcementsRes.data.data.slice(0, 5)); // Show latest 5
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to load event dashboard');
+      } finally {
+        setLoading(false);
+      }
     };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [showScanModal, event, scanning, submitScannedToken]);
+
+    load();
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!team?.id) return;
+    const loadSubmission = async () => {
+      try {
+        const res = await submissionsAPI.getTeamSubmission(team.id);
+        if (res.data.success && res.data.data) {
+          setSubmission(res.data.data);
+        } else {
+          setSubmission(null);
+        }
+      } catch {
+        setSubmission(null);
+      }
+    };
+    loadSubmission();
+  }, [team?.id]);
+
+  const handleUploadPPT = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !team?.id) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result;
+      if (typeof base64 !== 'string') return;
+      try {
+        setUploading(true);
+        await submissionsAPI.submitPPT({
+          eventId,
+          teamId: team.id,
+          pptBase64: base64,
+        });
+        const res = await submissionsAPI.getTeamSubmission(team.id);
+        if (res.data.success) setSubmission(res.data.data);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to upload PPT');
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const deadline = event?.ppt_submission_deadline || null;
+  const countdown = useCountdown(deadline);
+  const isLeader = team && user && team.leader_id === user.id;
+  const members = team?.team_members || [];
+
+  // Timeline items
+  const timelineItems = useMemo(() => {
+    if (!event) return [];
+    
+    const now = new Date();
+    const items = [
+      {
+        title: 'Registration Opens',
+        date: formatDate(event.created_at),
+        timestamp: new Date(event.created_at),
+        isCompleted: new Date(event.created_at) <= now,
+      },
+      {
+        title: 'Registration Deadline',
+        date: formatDate(event.registration_deadline),
+        timestamp: new Date(event.registration_deadline),
+        isCompleted: new Date(event.registration_deadline) <= now,
+      },
+      {
+        title: 'Hackathon Starts',
+        date: formatDate(event.start_date),
+        timestamp: new Date(event.start_date),
+        isCompleted: new Date(event.start_date) <= now,
+      },
+      {
+        title: 'Hackathon Ends',
+        date: formatDate(event.end_date),
+        timestamp: new Date(event.end_date),
+        isCompleted: new Date(event.end_date) <= now,
+      },
+    ];
+
+    if (event.ppt_submission_deadline) {
+      items.push({
+        title: 'PPT Submission Deadline',
+        date: formatDateTime(event.ppt_submission_deadline),
+        timestamp: new Date(event.ppt_submission_deadline),
+        isCompleted: new Date(event.ppt_submission_deadline) <= now,
+      });
+    }
+
+    return items.sort((a, b) => a.timestamp - b.timestamp);
+  }, [event]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex items-center justify-center">
-        <div className="text-white/60">Loading event dashboard...</div>
+      <div className="space-y-6">
+        <div className="h-10 w-64 rounded bg-white/10 animate-pulse" />
+        <div className="h-40 rounded-xl bg-white/5 animate-pulse" />
+        <div className="grid gap-4 md:grid-cols-[2fr,1.2fr]">
+          <div className="h-64 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-64 rounded-xl bg-white/5 animate-pulse" />
+        </div>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex items-center justify-center">
-        <div className="text-white/60">Event not found</div>
+      <div className="rounded-xl border border-red-400/60 bg-red-500/15 text-red-100 px-4 py-6">
+        {error || 'Event not found.'}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#050816] via-[#05030c] to-[#060b1b] text-white flex">
-      {/* Sidebar */}
-      <aside className="w-20 lg:w-64 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
-        <div className="h-20 flex items-center justify-center lg:justify-start px-6 border-b border-white/10">
-          <span className="text-cyan-400 font-semibold tracking-[0.25em] text-xs lg:text-sm">
-            END_LOOP
-          </span>
-        </div>
-        <nav className="flex-1 py-6 space-y-2 px-2 lg:px-4">
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-cyan-500/15 border border-cyan-400/50 text-cyan-200 text-sm"
-          >
-            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-            </span>
-            <span className="hidden lg:inline">Event Home Page</span>
-          </button>
-          <button
-            onClick={() => navigate(`/admin/events/${eventId}/manage`)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-white/30 text-white/70 hover:bg-white/5 hover:text-white transition-colors text-sm"
-          >
-            <span className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-              <span className="text-xs">⚙</span>
-            </span>
-            <span className="hidden lg:inline">Manage Event</span>
-          </button>
-        </nav>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 flex flex-col">
-        {/* Top bar */}
-        <header className="h-20 px-4 lg:px-8 flex items-center justify-between border-b border-white/10 bg-black/30 backdrop-blur-xl shrink-0">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg lg:text-xl font-semibold text-white truncate">{event.title}</h1>
-            <p className="text-xs lg:text-sm text-white/50 mt-0.5">
-              {formatDate(event.start_date)} – {formatDate(event.end_date)}
-              {event.committee_name && ` · ${event.committee_name}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 ml-4">
-            <button
-              onClick={handleScanQRClick}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                isEventDay(event)
-                  ? 'bg-cyan-500/90 text-white hover:bg-cyan-400 shadow-[0_4px_20px_rgba(34,211,238,0.25)]'
-                  : 'border border-white/30 text-white/70 hover:bg-white/5'
-              }`}
-            >
-              Scan QRs
-            </button>
-            <div className="hidden sm:flex items-center gap-3 pl-3 border-l border-white/10">
+    <div className="space-y-6 pb-10">
+      {/* Header with event info and countdown */}
+      <div className="rounded-2xl border border-white/15 bg-white/5 backdrop-blur-md p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
               <button
-                type="button"
-                onClick={() => {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  navigate('/login');
-                }}
-                className="px-3 py-1.5 rounded-lg border border-white/20 text-white/70 text-xs font-medium hover:bg-white/10 hover:text-white transition-colors"
+                onClick={() => navigate('/student/dashboard/events')}
+                className="text-cyan-400 hover:text-cyan-300 text-sm font-medium transition-colors"
               >
-                Log out
+                ← Back to Events
               </button>
-              <div className="text-right">
-                <p className="text-xs font-medium text-white/90">Admin</p>
-                <p className="text-xs text-white/50 truncate max-w-[120px]">{event.committee_name || '—'}</p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 border border-white/20 flex-shrink-0" />
+            </div>
+            <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">{event.title}</h1>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+                {event.mode === 'offline' ? 'Offline' : event.mode === 'online' ? 'Online' : 'Hybrid'}
+              </span>
+              {event.venue && event.mode === 'offline' && (
+                <span>📍 {event.venue}</span>
+              )}
+              <span>{formatDate(event.start_date)} – {formatDate(event.end_date)}</span>
             </div>
           </div>
-        </header>
-
-        {/* Event not started message */}
-        {eventNotStartedMessage && (
-          <div className="mx-4 mt-4 lg:mx-8 p-4 rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-100 text-sm flex items-center justify-between">
-            <span>Event has not started yet. QR scanning will be available on the event day ({formatDate(event.start_date)} – {formatDate(event.end_date)}).</span>
-            <button type="button" onClick={() => setEventNotStartedMessage(false)} className="p-1 rounded hover:bg-amber-500/20 text-amber-200">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-        )}
-
-        {/* Content */}
-        <section className="flex-1 overflow-y-auto p-4 lg:p-8">
-          {/* Tabs */}
-          <div className="flex items-center gap-4 mb-6 border-b border-white/10">
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'analytics'
-                  ? 'border-cyan-400 text-cyan-200'
-                  : 'border-transparent text-white/50 hover:text-white/70'
-              }`}
-            >
-              Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('submissions')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'submissions'
-                  ? 'border-cyan-400 text-cyan-200'
-                  : 'border-transparent text-white/50 hover:text-white/70'
-              }`}
-            >
-              Submissions
-            </button>
-            <button
-              onClick={() => setActiveTab('qr')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'qr'
-                  ? 'border-cyan-400 text-cyan-200'
-                  : 'border-transparent text-white/50 hover:text-white/70'
-              }`}
-            >
-              QR Codes
-            </button>
-          </div>
-
-          {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              {/* Key Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setShowParticipantsModal(true)}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
-                >
-                  <div className="text-3xl font-bold text-white mb-1">{stats.totalParticipants}</div>
-                  <div className="text-xs text-white/70">Total Participants</div>
-                  <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
-                </button>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <div className="text-3xl font-bold text-white mb-1">{stats.teamsRegistered}</div>
-                  <div className="text-xs text-white/70">Teams Registered</div>
+          
+          {/* Countdown Timer */}
+          {deadline && (
+            <div className="rounded-2xl border border-cyan-400/40 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 px-6 py-4 flex flex-col items-center gap-3 shadow-[0_0_30px_rgba(34,211,238,0.25)]">
+              <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80 font-medium">
+                {countdown.finished ? 'Submission Closed' : 'Time Left'}
+              </p>
+              {!countdown.finished && countdown.parts ? (
+                <div className="flex gap-2">
+                  {['days', 'hours', 'minutes', 'seconds'].map((unit) => (
+                    <div
+                      key={unit}
+                      className="w-12 h-14 rounded-lg bg-black/60 border border-cyan-400/40 flex flex-col items-center justify-center"
+                    >
+                      <span className="text-lg font-bold text-white">
+                        {String(countdown.parts[unit]).padStart(2, '0')}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-cyan-300/80">
+                        {unit.slice(0, 1)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <div className="text-3xl font-bold text-white mb-1">{stats.shortlistedTeams}</div>
-                  <div className="text-xs text-white/70">Shortlisted Teams</div>
+              ) : (
+                <p className="text-sm text-red-300 font-medium">Deadline passed</p>
+              )}
+              <p className="text-[10px] text-white/60">
+                {formatDateTime(deadline)}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Event Details Card */}
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-6">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              Event Details
+            </h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Committee</p>
+                  <p className="text-white/90">{event.committee_name || '—'}</p>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <div className="text-3xl font-bold text-white mb-1">{stats.pptSubmissions}</div>
-                  <div className="text-xs text-white/70">PPT Submissions</div>
+                <div>
+                  <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Team Size</p>
+                  <p className="text-white/90">
+                    {event.min_team_size === event.max_team_size 
+                      ? `${event.max_team_size} members` 
+                      : `${event.min_team_size}-${event.max_team_size} members`}
+                  </p>
                 </div>
               </div>
-
-              {/* QR Stats and Analytics Chart */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* QR Stats */}
-                <div className="lg:col-span-1 space-y-4">
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                    <h3 className="text-sm font-semibold mb-4">QR Statistics</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Entries Scanned</span>
-                        <span className="text-xl font-bold text-cyan-400">{qrStats.entriesScanned}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Meals Distributed</span>
-                        <span className="text-xl font-bold text-purple-400">{qrStats.mealsDistributed}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Hackathon Day Stats */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                    <h3 className="text-sm font-semibold mb-4">Hackathon Day Stats</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Participants Attendance</span>
-                        <span className="text-lg font-semibold text-white">{dayStats.attendance}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Breakfasts Claimed</span>
-                        <span className="text-lg font-semibold text-emerald-400">{dayStats.breakfastsClaimed}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Lunches Claimed</span>
-                        <span className="text-lg font-semibold text-yellow-400">{dayStats.lunchesClaimed}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/70">Dinners Claimed</span>
-                        <span className="text-lg font-semibold text-pink-400">{dayStats.dinnersClaimed}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Event Analytics Chart */}
-                <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h3 className="text-sm font-semibold mb-4">Event Analytics</h3>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'Participants', value: stats.totalParticipants, color: 'cyan' },
-                      { label: 'Teams', value: stats.teamsRegistered, color: 'purple' },
-                      { label: 'Shortlisted Teams', value: stats.shortlistedTeams, color: 'pink' },
-                      { label: 'Submissions', value: stats.pptSubmissions, color: 'emerald' },
-                    ].map((item) => {
-                      const maxValue = Math.max(
-                        stats.totalParticipants,
-                        stats.teamsRegistered,
-                        stats.shortlistedTeams,
-                        stats.pptSubmissions,
-                        1
-                      );
-                      const percentage = (item.value / maxValue) * 100;
-                      const colorClasses = {
-                        cyan: 'bg-cyan-400',
-                        purple: 'bg-purple-400',
-                        pink: 'bg-pink-400',
-                        emerald: 'bg-emerald-400',
-                      };
-                      return (
-                        <div key={item.label} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-white/70">{item.label}</span>
-                            <span className="text-white font-semibold">{item.value}</span>
-                          </div>
-                          <div className="h-3 bg-black/40 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${colorClasses[item.color]} rounded-full transition-all`}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Top Teams */}
-              {topTeams.length > 0 && (
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                  <h3 className="text-sm font-semibold mb-4">Top Teams</h3>
-                  <div className="space-y-3">
-                    {topTeams.map((team, index) => (
-                      <div
-                        key={team.team_id || index}
-                        className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/10"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center text-xs font-bold">
-                            #{index + 1}
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-white">
-                              {team.team_name || 'Team ' + (index + 1)}
-                            </div>
-                            <div className="text-xs text-white/60">
-                              {team.leader_name || 'Leader Name'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-cyan-400">
-                            Score: {team.total_score || 0}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {event.description && (
+                <div>
+                  <p className="text-xs text-white/50 uppercase tracking-wider mb-2">Description</p>
+                  <p className="text-white/80 text-sm leading-relaxed">{event.description}</p>
                 </div>
               )}
             </div>
-          )}
-
-          {activeTab === 'submissions' && (
-            <div className="space-y-6">
-              {/* Pending Submissions */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h3 className="text-sm font-semibold mb-4">Pending Submissions</h3>
-                {pendingSubmissions.length === 0 ? (
-                  <div className="text-white/40 text-sm py-8 text-center">
-                    No pending submissions
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingSubmissions.map((submission) => (
-                      <div
-                        key={submission.id}
-                        className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/10"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center text-xs font-bold text-red-400">
-                            IN
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-white">
-                              {submission.teams?.team_name || 'Team Name'}
-                            </div>
-                            <div className="text-xs text-white/60">
-                              Submitted: {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'N/A'}
-                            </div>
-                          </div>
-                        </div>
-                        <button className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors">
-                          Review
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* All Submissions */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h3 className="text-sm font-semibold mb-4">All Submissions</h3>
-                {submissions.length === 0 ? (
-                  <div className="text-white/40 text-sm py-8 text-center">
-                    No submissions yet
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {submissions.map((submission) => (
-                      <div
-                        key={submission.id}
-                        className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/10"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="text-sm font-semibold text-white">
-                            {submission.teams?.team_name || 'Team Name'}
-                          </div>
-                          <span className="text-xs text-white/60">
-                            {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'N/A'}
-                          </span>
-                        </div>
-                        <button className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors">
-                          View
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'qr' && (
-            <div className="space-y-6">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h3 className="text-sm font-semibold mb-4">QR Code Statistics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-black/40 rounded-xl border border-white/10">
-                    <div className="text-2xl font-bold text-cyan-400 mb-1">{qrStats.entriesScanned}</div>
-                    <div className="text-xs text-white/70">Entries Scanned</div>
-                  </div>
-                  <div className="p-4 bg-black/40 rounded-xl border border-white/10">
-                    <div className="text-2xl font-bold text-purple-400 mb-1">{qrStats.mealsDistributed}</div>
-                    <div className="text-xs text-white/70">Meals Distributed</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      </main>
-
-      {/* Scan QR modal – camera + result */}
-      {showScanModal && event && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95" role="dialog" aria-modal="true" aria-label="Scan entry QR">
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/50">
-            <h2 className="text-lg font-semibold text-white">Scan entry QR</h2>
-            <button type="button" onClick={closeScanModal} className="p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0">
-            <div className="relative w-full max-w-md aspect-square rounded-2xl overflow-hidden border-2 border-cyan-400/50 bg-black">
-              <video ref={videoRef} muted playsInline className="absolute inset-0 w-full h-full object-cover" />
-              {!window.BarcodeDetector && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white/80 text-sm text-center p-4">
-                  Camera on, but QR scan requires Chrome/Edge. Use manual entry below.
-                </div>
-              )}
+
+          {/* Team Details */}
+          {team && (
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-6">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                Team Details
+              </h2>
+              <div className="mb-4">
+                <p className="text-sm text-white/70">Team Name</p>
+                <p className="text-lg font-semibold text-white">{team.team_name}</p>
+              </div>
+              <div className="space-y-2">
+                {members.map((m, idx) => {
+                  const name = m.users
+                    ? [m.users.first_name, m.users.last_name].filter(Boolean).join(' ') || m.users.email
+                    : '—';
+                  const role = m.status === 'leader' ? 'Leader' : m.status === 'accepted' ? 'Member' : m.status;
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-black/30 border border-white/10">
+                      <span className="text-white/90 text-sm">{name}</span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          m.status === 'leader'
+                            ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
+                            : m.status === 'accepted'
+                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
+                            : 'bg-white/10 text-white/70 border border-white/20'
+                        }`}
+                      >
+                        {role}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <p className="text-white/60 text-sm mt-4">Point the camera at the participant’s entry QR code</p>
-            {scanResult && (
-              <div className={`mt-4 w-full max-w-md p-4 rounded-xl text-sm ${scanResult.success ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-100' : 'bg-red-500/20 border border-red-400/50 text-red-100'}`}>
-                {scanResult.message}
-                {scanResult.student && <p className="mt-1 font-medium">{scanResult.student} · {scanResult.team}</p>}
+          )}
+
+          {/* PPT Upload */}
+          {team && (
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-6">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                PPT Submission
+              </h2>
+              <div className="border border-cyan-400/30 rounded-xl p-4 bg-gradient-to-br from-cyan-500/5 to-transparent">
+                <div className="text-center">
+                  <div className="mb-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-cyan-500/20 border-2 border-dashed border-cyan-400/40 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                  </div>
+                  <p className="text-white/80 mb-2">
+                    {submission?.ppt_url ? 'PPT Submitted Successfully' : 'Upload your presentation'}
+                  </p>
+                  <p className="text-xs text-white/50 mb-4">
+                    Supported formats: .ppt, .pptx, .pdf
+                  </p>
+                  {isLeader ? (
+                    <label className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-cyan-500/90 hover:bg-cyan-400 text-white font-semibold cursor-pointer shadow-[0_0_20px_rgba(34,211,238,0.5)] transition-all">
+                      {uploading ? 'Uploading...' : submission?.ppt_url ? 'Re-upload PPT' : 'Upload PPT'}
+                      <input
+                        type="file"
+                        accept=".ppt,.pptx,.pdf"
+                        onChange={handleUploadPPT}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                    </label>
+                  ) : (
+                    <p className="text-sm text-white/60">
+                      Only the <span className="font-semibold text-white/80">team leader</span> can upload the PPT
+                    </p>
+                  )}
+                  {submission?.submitted_at && (
+                    <p className="text-xs text-emerald-300 mt-3">
+                      Last uploaded: {formatDateTime(submission.submitted_at)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Announcements */}
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-6">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+              Recent Announcements
+            </h2>
+            {announcements.length === 0 ? (
+              <p className="text-sm text-white/60 text-center py-8">No announcements yet</p>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {announcements.map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-xl border border-white/15 bg-black/35 p-4 hover:border-cyan-400/40 hover:shadow-[0_0_18px_rgba(34,211,238,0.25)] transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-sm font-semibold text-white/90 truncate">{a.title}</p>
+                      <span className="text-[10px] text-white/50 whitespace-nowrap">
+                        {formatDateTime(a.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/70 whitespace-pre-wrap line-clamp-3">
+                      {a.message}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
-            <div className="mt-4 w-full max-w-md">
-              <label className="block text-xs text-white/50 mb-1">Or enter token manually</label>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const token = e.currentTarget.token?.value?.trim();
-                  if (token) submitScannedToken(token);
-                }}
-                className="flex gap-2"
-              >
-                <input name="token" type="text" placeholder="Paste QR token" className="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:border-cyan-400/60 focus:outline-none" disabled={scanning} />
-                <button type="submit" disabled={scanning} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-400 disabled:opacity-50">
-                  {scanning ? '…' : 'Submit'}
-                </button>
-              </form>
-            </div>
           </div>
-        </div>
-      )}
 
-      {/* All Participants modal */}
-      {showParticipantsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowParticipantsModal(false)}>
-          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-white/10">
-              <h2 className="text-lg font-semibold text-white">All Participants</h2>
-              <button type="button" onClick={() => setShowParticipantsModal(false)} className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto p-4 space-y-2">
-              {(() => {
-                const list = [];
-                teams.forEach((team) => {
-                  (team.team_members || []).forEach((m) => {
-                    if (m.status !== 'accepted' && m.status !== 'leader') return;
-                    const u = m.users;
-                    list.push({
-                      name: u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : 'Unknown',
-                      email: u?.email,
-                      team: team.team_name,
-                      role: m.status === 'leader' ? 'Leader' : 'Member',
-                    });
-                  });
-                });
-                if (list.length === 0) return <p className="text-white/50 text-sm py-4 text-center">No participants yet</p>;
-                return list.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
-                    <div>
-                      <p className="text-sm font-medium text-white">{p.name}</p>
-                      <p className="text-xs text-white/50">{p.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-cyan-300">{p.team}</p>
-                      <p className="text-xs text-white/40">{p.role}</p>
-                    </div>
-                  </div>
-                ));
-              })()}
+          {/* Event Timeline */}
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-6">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+              Event Timeline
+            </h2>
+            <div className="relative">
+              <div className="absolute left-2 top-2 bottom-2 w-px bg-gradient-to-b from-cyan-400/30 via-cyan-400/10 to-transparent" />
+              <div className="space-y-1">
+                {timelineItems.map((item, index) => (
+                  <TimelineItem
+                    key={index}
+                    title={item.title}
+                    date={item.date}
+                    isActive={!item.isCompleted && index === timelineItems.findIndex(i => !i.isCompleted)}
+                    isCompleted={item.isCompleted}
+                  />
+                ))}
+              </div>
             </div>
           </div>
+
+          {/* Submission Status */}
+          {team && (
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-6">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                Submission Status
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/70">Team</span>
+                  <span className="text-white/90 font-medium">{team.team_name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/70">Status</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    submission?.ppt_url 
+                      ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
+                      : 'bg-yellow-500/20 text-yellow-200 border border-yellow-400/40'
+                  }`}>
+                    {submission?.ppt_url ? 'Submitted' : 'Pending'}
+                  </span>
+                </div>
+                {submission?.ppt_url && (
+                  <div className="pt-2 border-t border-white/10">
+                    <a
+                      href={submission.ppt_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-200 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      View Submitted PPT
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

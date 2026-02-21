@@ -1,34 +1,52 @@
-create table public.events (
-  id uuid not null default gen_random_uuid (),
-  title text not null,
-  description text not null,
-  category public.event_category not null,
-  committee_name text not null,
-  created_by uuid not null,
-  start_date date not null,
-  end_date date not null,
-  registration_deadline date not null,
-  event_start_time time without time zone not null,
-  event_end_time time without time zone not null,
-  min_team_size integer not null default 1,
-  max_team_size integer not null default 4,
-  allow_individual boolean not null default true,
-  mode public.event_mode not null default 'offline'::event_mode,
-  venue text null,
-  first_prize numeric(10, 2) null default 0,
-  second_prize numeric(10, 2) null default 0,
-  third_prize numeric(10, 2) null default 0,
-  entry_fee numeric(10, 2) not null default 0,
-  is_free boolean not null default true,
-  rules jsonb null default '[]'::jsonb,
-  banner_url text null,
-  problem_statement_url text null,
-  status public.event_status not null default 'draft'::event_status,
-  created_at timestamp with time zone null default now(),
-  updated_at timestamp with time zone null default now(),
-  ppt_submission_deadline date null,
-  teams_to_shortlist integer null default 5,
-  meals jsonb null default '[]'::jsonb,
-  constraint events_pkey primary key (id),
-  constraint events_created_by_fkey foreign KEY (created_by) references users (id)
-) TABLESPACE pg_default;
+-- ─── ENUMS ───────────────────────────────────────────────────────────────────
+CREATE TYPE event_category AS ENUM ('web_dev', 'ai_ml', 'app_dev', 'blockchain', 'other');
+CREATE TYPE event_mode     AS ENUM ('online', 'offline');
+CREATE TYPE event_status   AS ENUM ('draft', 'registration_open', 'registration_closed', 'ppt_submission', 'shortlisting', 'hackathon_active', 'judging', 'completed');
+
+-- ─── Events table ─────────────────────────────────────────────────────────────
+CREATE TABLE events (
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title                    TEXT NOT NULL,
+  description              TEXT NOT NULL,
+  category                 event_category NOT NULL,
+  committee_name           TEXT NOT NULL,
+  created_by               UUID NOT NULL REFERENCES users(id),
+
+  -- Dates
+  start_date               DATE NOT NULL,
+  end_date                 DATE NOT NULL,
+  registration_deadline    DATE NOT NULL,
+  event_start_time         TIME NOT NULL,
+  event_end_time           TIME NOT NULL,
+
+  -- Team settings
+  min_team_size            INT NOT NULL DEFAULT 1,
+  max_team_size            INT NOT NULL DEFAULT 4,
+  allow_individual         BOOLEAN NOT NULL DEFAULT TRUE,
+
+  -- Mode
+  mode                     event_mode NOT NULL DEFAULT 'offline',
+  venue                    TEXT,
+
+  -- Prizes
+  first_prize              NUMERIC(10,2) DEFAULT 0,
+  second_prize             NUMERIC(10,2) DEFAULT 0,
+  third_prize              NUMERIC(10,2) DEFAULT 0,
+
+  -- Entry fee
+  entry_fee                NUMERIC(10,2) NOT NULL DEFAULT 0,
+  is_free                  BOOLEAN NOT NULL DEFAULT TRUE,
+
+  -- Rules (stored as JSON array of strings)
+  rules                    JSONB DEFAULT '[]',
+
+  -- Media
+  banner_url               TEXT,
+  problem_statement_url    TEXT,    -- uploaded later by admin
+
+  -- Status
+  status                   event_status NOT NULL DEFAULT 'draft',
+
+  created_at               TIMESTAMPTZ DEFAULT NOW(),
+  updated_at               TIMESTAMPTZ DEFAULT NOW()
+);

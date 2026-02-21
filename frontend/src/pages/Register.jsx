@@ -24,7 +24,6 @@ export default function Register() {
   const [selfiePreview, setSelfiePreview] = useState('');
   const [selfieBase64, setSelfieBase64] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -108,23 +107,6 @@ export default function Register() {
       );
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResendOTP = async () => {
-    if (!formData.email || resendLoading) return;
-    setResendLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      const response = await authAPI.resendOTP(formData.email);
-      if (response.data.success) {
-        setSuccess(response.data.message || 'OTP resent to your email.');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to resend OTP.');
-    } finally {
-      setResendLoading(false);
     }
   };
 
@@ -436,15 +418,6 @@ export default function Register() {
               className="w-full bg-gradient-to-r from-cyan-400 to-cyan-600 border-none rounded-xl py-4 text-white text-lg font-semibold cursor-pointer transition-all duration-300 mt-2 shadow-[0_4px_20px_rgba(0,217,255,0.4)] uppercase tracking-wider hover:-translate-y-0.5 hover:shadow-[0_6px_30px_rgba(0,217,255,0.6)] hover:from-cyan-300 hover:to-cyan-500 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? 'Verifying...' : 'Verify OTP'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResendOTP}
-              disabled={resendLoading}
-              className="w-full bg-transparent border border-cyan-500/50 rounded-xl py-3 text-cyan-300 text-sm font-medium cursor-pointer transition-all duration-300 hover:bg-cyan-500/10 disabled:opacity-50"
-            >
-              {resendLoading ? 'Sending...' : 'Resend OTP'}
             </button>
 
             <button

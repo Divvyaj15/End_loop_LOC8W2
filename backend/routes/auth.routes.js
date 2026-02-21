@@ -15,7 +15,7 @@ const router = Router();
 // ─── Registration flow ────────────────────────────────────────────────────────
 router.post("/register-basic",     validate(["firstName", "lastName", "dob", "phone", "aadhaarNumber", "email", "password"]), registerBasic);
 router.post("/verify-otp",         validate(["email", "otp"]), verifyOTP);
-router.post("/register-complete",  validate(["tempToken", "collegeIdBase64", "selfieBase64"]), registerComplete);
+router.post("/register-complete",  verifyToken, validate(["collegeIdBase64", "selfieBase64"]), registerComplete);
 router.post("/resend-otp",         validate(["email"]), resendOTP);
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

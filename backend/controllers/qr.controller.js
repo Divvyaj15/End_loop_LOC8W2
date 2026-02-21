@@ -185,14 +185,8 @@ export const scanEntryQR = async (req, res, next) => {
 
     await supabaseAdmin
       .from("entry_qrs")
-      .update({ is_used: true, scanned_at: now, scanned_by: adminId, qr_image_url: null })
+      .update({ is_used: true, scanned_at: now, scanned_by: adminId })
       .eq("qr_token", qrToken);
-
-    // Delete QR image from storage
-    if (qr.qr_image_url) {
-      const path = qr.qr_image_url.split("/qr-codes/")[1]?.split("?")[0];
-      if (path) await supabaseAdmin.storage.from("qr-codes").remove([decodeURIComponent(path)]);
-    }
 
     // Update team attendance
     const { data: attendance } = await supabaseAdmin

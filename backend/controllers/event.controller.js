@@ -12,7 +12,6 @@ export const createEvent = async (req, res, next) => {
     const {
       title, description, category, committeeName,
       startDate, endDate, registrationDeadline,
-      pptSubmissionDeadline,
       eventStartTime, eventEndTime,
       minTeamSize, maxTeamSize, allowIndividual,
       mode, venue,
@@ -20,14 +19,9 @@ export const createEvent = async (req, res, next) => {
       entryFee, isFree,
       rules,
       bannerBase64,
-      meals,
-      teamsToShortlist,
     } = req.body;
 
     const adminId = req.user.id;
-
-    // category: single from schema; if array sent (multi-domain), use first
-    const categoryValue = Array.isArray(category) ? category[0] : category;
 
     // Upload banner image if provided
     let banner_url = null;
@@ -35,40 +29,32 @@ export const createEvent = async (req, res, next) => {
       banner_url = await uploadImage(bannerBase64, "event_banner", adminId);
     }
 
-    const needsVenue = mode === "offline" || mode === "hybrid";
-    // DB column mode is TEXT[]; always send an array
-    const modeSingle = mode === "hybrid" ? "offline" : (mode || "offline");
-    const modeArray = mode === "hybrid" ? ["offline", "online"] : [modeSingle];
-
     const { data: event, error } = await supabaseAdmin
       .from("events")
       .insert({
         title,
         description,
-        category:                  categoryValue,
-        committee_name:            committeeName,
-        created_by:                adminId,
-        start_date:                startDate,
-        end_date:                  endDate,
-        registration_deadline:     registrationDeadline,
-        event_start_time:          eventStartTime,
-        event_end_time:            eventEndTime,
+        category,
+        committee_name:           committeeName,
+        created_by:               adminId,
+        start_date:               startDate,
+        end_date:                 endDate,
+        registration_deadline:    registrationDeadline,
+        event_start_time:         eventStartTime,
+        event_end_time:           eventEndTime,
         min_team_size:            minTeamSize || 1,
         max_team_size:            maxTeamSize || 4,
         allow_individual:         allowIndividual ?? true,
-        mode:                      modeArray,
-        venue:                     needsVenue ? venue : null,
-        first_prize:               firstPrize  || 0,
-        second_prize:              secondPrize || 0,
-        third_prize:               thirdPrize  || 0,
-        entry_fee:                 entryFee    || 0,
-        is_free:                   isFree      ?? true,
-        rules:                     rules       || [],
+        mode:                     mode || "offline",
+        venue:                    mode === "offline" ? venue : null,
+        first_prize:              firstPrize  || 0,
+        second_prize:             secondPrize || 0,
+        third_prize:              thirdPrize  || 0,
+        entry_fee:                entryFee    || 0,
+        is_free:                  isFree      ?? true,
+        rules:                    rules       || [],
         banner_url,
-        status:                    EVENT_STATUS.REGISTRATION_OPEN,
-        ppt_submission_deadline:   pptSubmissionDeadline || null,
-        meals:                     Array.isArray(meals) ? meals : (meals ? [meals] : []),
-        teams_to_shortlist:        teamsToShortlist != null ? Number(teamsToShortlist) : 5,
+        status:                   EVENT_STATUS.DRAFT,
       })
       .select()
       .single();
@@ -102,7 +88,7 @@ export const getAllEvents = async (req, res, next) => {
       .order("start_date", { ascending: true });
 
     if (category) query = query.eq("category", category);
-    if (mode)     query = query.contains("mode", [mode]);
+    if (mode)     query = query.eq("mode", mode);
     if (status)   query = query.eq("status", status);
 
     const { data: events, error } = await query;
@@ -197,12 +183,6 @@ export const updateEvent = async (req, res, next) => {
       if (req.body[camelKey] !== undefined) updates[key] = req.body[camelKey];
       if (req.body[key]      !== undefined) updates[key] = req.body[key];
     });
-    // mode column is TEXT[]; ensure we never send a string
-    if (typeof updates.mode === "string") {
-      updates.mode = [updates.mode];
-    } else if (Array.isArray(updates.mode) && updates.mode.some((m) => typeof m !== "string")) {
-      updates.mode = updates.mode.map((m) => (m === "hybrid" ? "offline" : String(m)));
-    }
 
     const { data: event, error } = await supabaseAdmin
       .from("events")

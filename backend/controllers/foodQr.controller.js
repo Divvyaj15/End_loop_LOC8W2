@@ -80,14 +80,8 @@ export const scanFoodQR = async (req, res, next) => {
 
     await supabaseAdmin
       .from("food_qrs")
-      .update({ is_used: true, scanned_at: now, scanned_by: adminId, qr_image_url: null })
+      .update({ is_used: true, scanned_at: now, scanned_by: adminId })
       .eq("qr_token", qrToken);
-
-    // Delete food QR image from storage
-    if (qr.qr_image_url) {
-      const path = qr.qr_image_url.split("/qr-codes/")[1]?.split("?")[0];
-      if (path) await supabaseAdmin.storage.from("qr-codes").remove([decodeURIComponent(path)]);
-    }
 
     res.status(200).json({
       success: true,

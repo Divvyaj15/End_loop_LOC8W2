@@ -15,4 +15,29 @@
   #root {
     @apply min-h-screen;
   }
+
+  /* Themed scrollbar - applies to scrollable areas (dashboards, etc.) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 217, 255, 0.6) #1a1a2e;
+  }
+  
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  *::-webkit-scrollbar-track {
+    background: #1a1a2e;
+    border-radius: 4px;
+  }
+  
+  *::-webkit-scrollbar-thumb {
+    background: rgba(0, 217, 255, 0.6);
+    border-radius: 4px;
+  }
+  
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 217, 255, 0.8);
+  }
 }

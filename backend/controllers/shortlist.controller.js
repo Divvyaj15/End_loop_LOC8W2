@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../config/supabase.js";
+import { syncEventStatus } from "../utils/statusSync.js";
 
 // ─── Helper: calculate weighted total score ───────────────────────────────────
 const calcTotal = (scores, weights) => {
@@ -51,17 +52,22 @@ export const scorePPT = async (req, res, next) => {
       }
     }
 
-    // Check event is in shortlisting phase
-    const { data: event } = await supabaseAdmin
+    // Fetch and sync event status (to ensure we have the latest phase based on dates)
+    const { data: eventRow } = await supabaseAdmin
       .from("events")
-      .select("id, status, teams_to_shortlist")
+      .select("*")
       .eq("id", eventId)
       .single();
 
-    if (!event) {
+    if (!eventRow) {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
-    if (event.status !== "shortlisting") {
+
+    const event = await syncEventStatus(eventRow);
+
+    // Allow scoring during registration_open, ppt_submission, and shortlisting phases
+    // This allows admin to evaluate PPTs as soon as teams submit them, even before deadlines
+    if (!["registration_open", "ppt_submission", "shortlisting"].includes(event.status)) {
       return res.status(400).json({ success: false, message: `Scoring not allowed in current phase: ${event.status}` });
     }
 

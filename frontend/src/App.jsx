@@ -12,6 +12,7 @@ import StudentPlaceholder from './pages/StudentPlaceholder';
 import StudentProfile from './pages/StudentProfile';
 import JudgeDashboard from './pages/JudgeDashboard';
 import JudgeScoreTeam from './pages/JudgeScoreTeam';
+import AdminEvaluatePPT from './pages/AdminEvaluatePPT';
 import './App.css';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/events/:eventId" element={<EventDashboard />} />
         <Route path="/admin/events/:eventId/manage" element={<ManageEvent />} />
+        <Route path="/admin/events/:eventId/submissions/evaluate" element={<AdminEvaluatePPT />} />
 
         {/* Judge */}
         <Route path="/judge/dashboard" element={<JudgeDashboard />} />

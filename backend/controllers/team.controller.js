@@ -1,6 +1,7 @@
 import { supabaseAdmin }                from "../config/supabase.js";
 import { TEAM_STATUS, MEMBER_STATUS }   from "../models/team.model.js";
 import { sendTeamInviteEmail }          from "../utils/mailer.js";
+import { syncEventStatus }              from "../utils/statusSync.js";
 
 // ─── Helper: send notification to a user ─────────────────────────────────────
 const sendNotification = async (userId, title, message, type = "general", data = {}) => {
@@ -48,16 +49,17 @@ export const createTeam = async (req, res, next) => {
     const { eventId, teamName, memberEmails = [] } = req.body;
     const leaderId = req.user.id;
 
-    // 1. Check event exists and registration is open
-    const { data: event } = await supabaseAdmin
+    // 1. Check event exists and registration is open (sync status from dates)
+    const { data: eventRow } = await supabaseAdmin
       .from("events")
-      .select("id, title, status, min_team_size, max_team_size, allow_individual")
+      .select("*")
       .eq("id", eventId)
       .single();
 
-    if (!event) {
+    if (!eventRow) {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
+    const event = await syncEventStatus(eventRow);
     if (event.status !== "registration_open") {
       return res.status(400).json({ success: false, message: "Event registration is not open" });
     }

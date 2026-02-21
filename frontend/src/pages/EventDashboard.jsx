@@ -239,15 +239,20 @@ export default function EventDashboard() {
         const barcodes = await detector.detect(video);
         if (barcodes.length > 0 && barcodes[0].rawValue) {
           const raw = barcodes[0].rawValue;
+          let token = raw;
+          // Try to parse as JSON (QR codes are stored as JSON with {token, type})
           try {
             const parsed = JSON.parse(raw);
-            const token = parsed?.token || raw;
-            if (token) {
-              submitScannedToken(token);
-              return;
+            if (parsed?.token) {
+              token = parsed.token;
             }
           } catch {
-            submitScannedToken(raw);
+            // Not JSON, use raw value as token
+            token = raw.trim();
+          }
+          if (token) {
+            submitScannedToken(token.trim());
+            return;
           }
         }
       } catch (_) {}

@@ -320,10 +320,12 @@ export default function ManageEvent() {
         eventStartTime: settingsForm.eventStartTime || undefined,
         eventEndTime: settingsForm.eventEndTime || undefined,
         pptSubmissionDeadline: settingsForm.pptSubmissionDeadline || undefined,
-        status: settingsForm.status || undefined,
         venue: settingsForm.venue || undefined,
         teamsToShortlist: settingsForm.teamsToShortlist != null ? Number(settingsForm.teamsToShortlist) : undefined,
       };
+      if (settingsForm.status === 'draft') {
+        payload.status = 'draft';
+      }
       const res = await eventAPI.updateEvent(eventId, payload);
       if (res.data?.success) {
         setEvent(res.data.data);
@@ -611,6 +613,7 @@ export default function ManageEvent() {
                     {submissions.map((sub) => (
                       <button
                         key={sub.id}
+                        onClick={() => navigate(`/admin/events/${eventId}/submissions/evaluate`, { state: { submission: sub } })}
                         className="w-full text-left flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/10 hover:border-cyan-400/40 hover:bg-black/60 transition-colors"
                       >
                         <div>
@@ -845,16 +848,25 @@ export default function ManageEvent() {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-white/60 mb-1">Status (phase)</label>
-                    <select value={settingsForm.status} onChange={(e) => handleSettingsChange('status', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none">
-                      <option value="draft">Draft (hidden from students)</option>
-                      <option value="registration_open">Registration open</option>
-                      <option value="registration_closed">Registration closed</option>
-                      <option value="ppt_submission">PPT submission</option>
-                      <option value="shortlisting">Shortlisting</option>
-                      <option value="hackathon_active">Hackathon active</option>
-                      <option value="judging">Judging</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                    <div className="px-3 py-2.5 rounded-lg bg-black/40 border border-white/20 text-white text-sm">
+                      {settingsForm.status === 'draft'
+                        ? 'Draft (hidden from students)'
+                        : settingsForm.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </div>
+                    <p className="text-[11px] text-white/50 mt-1.5">
+                      Status is set automatically from event dates (registration deadline, PPT deadline, start/end). To delete this event, mark as Draft below and save first.
+                    </p>
+                    {event?.status !== 'draft' && (
+                      <label className="mt-2 flex items-center gap-2 text-xs text-white/70 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settingsForm.status === 'draft'}
+                          onChange={(e) => handleSettingsChange('status', e.target.checked ? 'draft' : event?.status || 'registration_open')}
+                          className="rounded border-white/30 bg-black/60 accent-cyan-400"
+                        />
+                        Mark as Draft (required to delete event)
+                      </label>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-white/60 mb-1">Venue</label>
@@ -870,7 +882,7 @@ export default function ManageEvent() {
               {/* Danger zone */}
               <div className="pt-4 border-t border-white/10">
                 <h3 className="text-sm font-semibold text-red-300/90 mb-3">Danger zone</h3>
-                <p className="text-xs text-white/50 mb-3">Only draft events can be deleted. Set status to &quot;Draft&quot; above and save, then click Delete event.</p>
+                <p className="text-xs text-white/50 mb-3">Only draft events can be deleted. Check &quot;Mark as Draft&quot; above, save, then click Delete event.</p>
                 <button type="button" onClick={handleDeleteEvent} disabled={settingsDeleting} className="px-4 py-2 rounded-xl border border-red-400/50 text-red-300 text-sm font-medium hover:bg-red-500/20 disabled:opacity-50">
                   {settingsDeleting ? 'Deleting…' : 'Delete event'}
                 </button>

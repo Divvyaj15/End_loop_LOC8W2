@@ -1,6 +1,7 @@
 import { supabaseAdmin }              from "../config/supabase.js";
 import { EVENT_STATUS }               from "../models/event.model.js";
 import { uploadImage, uploadPDF }     from "../utils/storage.js";
+import { syncEventStatus }            from "../utils/statusSync.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
@@ -103,12 +104,15 @@ export const getAllEvents = async (req, res, next) => {
 
     if (category) query = query.eq("category", category);
     if (mode)     query = query.contains("mode", [mode]);
-    if (status)   query = query.eq("status", status);
 
     const { data: events, error } = await query;
     if (error) throw error;
 
-    res.status(200).json({ success: true, data: events });
+    const synced = await Promise.all((events || []).map((e) => syncEventStatus(e)));
+    const filtered = status
+      ? synced.filter((e) => e.status === status)
+      : synced;
+    res.status(200).json({ success: true, data: filtered });
   } catch (err) {
     next(err);
   }
@@ -129,7 +133,8 @@ export const getAdminEvents = async (req, res, next) => {
 
     if (error) throw error;
 
-    res.status(200).json({ success: true, data: events });
+    const synced = await Promise.all((events || []).map((e) => syncEventStatus(e)));
+    res.status(200).json({ success: true, data: synced });
   } catch (err) {
     next(err);
   }
@@ -152,7 +157,8 @@ export const getEventById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    res.status(200).json({ success: true, data: event });
+    const synced = await syncEventStatus(event);
+    res.status(200).json({ success: true, data: synced });
   } catch (err) {
     next(err);
   }

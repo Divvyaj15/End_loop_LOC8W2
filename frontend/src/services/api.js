@@ -83,6 +83,7 @@ export const shortlistAPI = {
   getShortlistedTeams: (eventId) => api.get(`/shortlist/${eventId}`),
   getLeaderboard: (eventId) => api.get(`/shortlist/leaderboard/${eventId}`),
   confirmShortlist: (eventId) => api.post(`/shortlist/confirm/${eventId}`),
+  scorePPT: (data) => api.post('/shortlist/score', data),
 };
 
 // QR API

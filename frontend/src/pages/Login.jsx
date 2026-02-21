@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
@@ -8,16 +8,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
-  /* Hide body scrollbar on login page only */
-  useEffect(() => {
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-    };
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,12 +24,16 @@ export default function Login() {
       const response = await authAPI.login(email, password);
 
       if (response.data.success) {
-        // Store token and user data
-        localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.data.user));
-        
-        // Navigate based on role
-        const userRole = response.data.data.user.role;
+        const { token, user: u } = response.data.data;
+        const user = {
+          ...u,
+          first_name: u.first_name ?? u.firstName,
+          last_name: u.last_name ?? u.lastName,
+        };
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        const userRole = user.role;
         if (userRole === 'admin') {
           navigate('/admin/dashboard');
         } else if (userRole === 'judge') {
@@ -49,8 +43,13 @@ export default function Login() {
         }
       }
     } catch (err) {
+      const data = err.response?.data;
+      if (err.response?.status === 403 && data?.registrationPending) {
+        setError(data.message || 'Please complete your registration.');
+        return;
+      }
       setError(
-        err.response?.data?.message || 
+        data?.message ||
         'Login failed. Please check your credentials.'
       );
     } finally {
@@ -59,7 +58,7 @@ export default function Login() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#16213e] bg-fixed relative">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#16213e] bg-fixed relative overflow-x-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl"></div>
@@ -86,8 +85,13 @@ export default function Login() {
         </h2>
         
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-6 text-center text-sm">
-            {error}
+          <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-6 text-center text-sm space-y-2">
+            <p>{error}</p>
+            {(error.includes('OTP') || error.includes('complete registration') || error.includes('documents')) && (
+              <Link to="/register" className="inline-block text-cyan-300 hover:text-cyan-200 text-sm font-medium">
+                Complete registration →
+              </Link>
+            )}
           </div>
         )}
 

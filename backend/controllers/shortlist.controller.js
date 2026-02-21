@@ -264,34 +264,3 @@ export const getShortlistedTeams = async (req, res, next) => {
     next(err);
   }
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * GET /api/shortlist/check/:eventId/:teamId
- * Check if a specific team is shortlisted for an event
- */
-export const checkTeamShortlisted = async (req, res, next) => {
-  try {
-    const { data: shortlisted, error } = await supabaseAdmin
-      .from("shortlisted_teams")
-      .select("rank, shortlisted_at")
-      .eq("event_id", req.params.eventId)
-      .eq("team_id", req.params.teamId)
-      .single();
-
-    if (error || !shortlisted) {
-      return res.status(200).json({ success: true, data: { shortlisted: false } });
-    }
-
-    res.status(200).json({ 
-      success: true, 
-      data: { 
-        shortlisted: true,
-        rank: shortlisted.rank,
-        shortlisted_at: shortlisted.shortlisted_at
-      } 
-    });
-  } catch (err) {
-    next(err);
-  }
-};

@@ -44,49 +44,19 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API
+// Auth API — matches backend: register-basic → verify-otp → register-complete; login; resend-otp; me
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   registerBasic: (data) => api.post('/auth/register-basic', data),
   verifyOTP: (email, otp) => api.post('/auth/verify-otp', { email, otp }),
-  // registerComplete now expects tempToken in the body (no auth header)
   registerComplete: (data) => api.post('/auth/register-complete', data),
+  resendOTP: (email) => api.post('/auth/resend-otp', { email }),
   getMe: () => api.get('/auth/me'),
 };
 
-// Teams API (student)
-export const teamsAPI = {
-  getMyTeams: () => api.get('/teams/my-teams'),
-  createTeam: (data) => api.post('/teams', data),
-  getTeamById: (teamId) => api.get(`/teams/${teamId}`),
-  acceptInvite: (teamId) => api.post(`/teams/${teamId}/accept`),
-  declineInvite: (teamId) => api.post(`/teams/${teamId}/decline`),
-};
-
-// QR API (student)
-export const qrAPI = {
-  getMyQr: (eventId) => api.get(`/qr/my-qr/${eventId}`),
-};
-
-// Food QR API (student)
-export const foodQrAPI = {
-  getMyMeals: (eventId) => api.get(`/food-qr/my-meals/${eventId}`),
-};
-
-// Submissions API (student)
-export const submissionsAPI = {
-  getTeamSubmission: (teamId) => api.get(`/submissions/team/${teamId}`),
-  submitPPT: (data) => api.post('/submissions', data),
-  getProblemStatement: (eventId) => api.get(`/submissions/event/${eventId}/problem-statement`),
-  getFinalSubmission: (teamId) => api.get(`/submissions/final/${teamId}`),
-  submitFinalPPT: (data) => api.post('/submissions/final-ppt', data),
-  submitFinalGitHub: (data) => api.post('/submissions/final-github', data),
-  submitFinalVideo: (data) => api.post('/submissions/final-video', data),
-};
-
-// Events API (admin + public)
+// Events API
 export const eventAPI = {
-  getAllEvents: () => api.get('/events'),
+  getEvents: (params) => api.get('/events', { params }),
   createEvent: (data) => api.post('/events', data),
   getAdminEvents: () => api.get('/events/admin/all'),
   getEventById: (eventId) => api.get(`/events/${eventId}`),
@@ -96,15 +66,35 @@ export const eventAPI = {
     api.post(`/events/${eventId}/problem-statement`, { pdfBase64 }),
 };
 
-// Announcements API (student/admin)
-export const announcementsAPI = {
-  getByEvent: (eventId) => api.get(`/announcements/event/${eventId}`),
+// Teams API
+export const teamAPI = {
+  getMyTeams: () => api.get('/teams/my-teams'),
+  getTeamsByEvent: (eventId) => api.get(`/teams/event/${eventId}`),
+  createTeam: (data) => api.post('/teams', data),
 };
 
-// Shortlist API (student)
+// Submissions API
+export const submissionAPI = {
+  getSubmissionsByEvent: (eventId) => api.get(`/submissions/event/${eventId}`),
+};
+
+// Shortlist API
 export const shortlistAPI = {
   getShortlistedTeams: (eventId) => api.get(`/shortlist/${eventId}`),
-  checkTeamShortlisted: (eventId, teamId) => api.get(`/shortlist/check/${eventId}/${teamId}`),
+  getLeaderboard: (eventId) => api.get(`/shortlist/leaderboard/${eventId}`),
+  confirmShortlist: (eventId) => api.post(`/shortlist/confirm/${eventId}`),
+};
+
+// QR API
+export const qrAPI = {
+  getAttendance: (eventId) => api.get(`/qr/attendance/${eventId}`),
+  generateEntryQRs: (eventId) => api.post(`/qr/generate/${eventId}`),
+  scanEntry: (qrToken) => api.post('/qr/scan', { qrToken }),
+};
+
+// Food QR API
+export const foodQrAPI = {
+  getFoodReport: (eventId) => api.get(`/food-qr/report/${eventId}`),
 };
 
 export default api;

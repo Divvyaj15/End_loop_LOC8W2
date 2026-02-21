@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { eventAPI, teamAPI, submissionAPI, shortlistAPI, qrAPI, foodQrAPI } from '../services/api';
+import EventAnnouncements from './EventAnnouncements';
+import EventMessageTeam from './EventMessageTeam';
 
 function isEventDay(event) {
   if (!event?.start_date || !event?.end_date) return false;
@@ -13,6 +15,9 @@ function isEventDay(event) {
 export default function EventDashboard() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAnnouncements = location.pathname.includes('/announcements');
+  const isMessage = location.pathname.includes('/message');
   
   const [event, setEvent] = useState(null);
   const [showScanModal, setShowScanModal] = useState(false);
@@ -24,6 +29,7 @@ export default function EventDashboard() {
   const [foodPendingToken, setFoodPendingToken] = useState(null);
   const [fulfilling, setFulfilling] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
+  const [showTeamsModal, setShowTeamsModal] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const lastScannedTokenRef = useRef({ token: null, at: 0 });
@@ -333,8 +339,10 @@ export default function EventDashboard() {
         </div>
         <nav className="flex-1 py-6 space-y-2 px-2 lg:px-4">
           <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-cyan-500/15 border border-cyan-400/50 text-cyan-200 text-sm"
+            onClick={() => navigate(`/admin/events/${eventId}`)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${
+              !isAnnouncements && !isMessage ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
           >
             <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
@@ -349,6 +357,37 @@ export default function EventDashboard() {
               <span className="text-xs">⚙</span>
             </span>
             <span className="hidden lg:inline">Manage Event</span>
+          </button>
+          <button
+            onClick={() => navigate(`/admin/events/${eventId}/manage`, { state: { openSection: 'judging' } })}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-white/30 text-white/70 hover:bg-white/5 hover:text-white transition-colors text-sm"
+          >
+            <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            </span>
+            <span className="hidden lg:inline">Judging</span>
+          </button>
+          <button
+            onClick={() => navigate(`/admin/events/${eventId}/announcements`)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+              isAnnouncements ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+              <span className="text-xs">📢</span>
+            </span>
+            <span className="hidden lg:inline">Announcements</span>
+          </button>
+          <button
+            onClick={() => navigate(`/admin/events/${eventId}/message`)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+              isMessage ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200' : 'border border-white/30 text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+              <span className="text-xs">✉</span>
+            </span>
+            <span className="hidden lg:inline">Message</span>
           </button>
         </nav>
       </aside>
@@ -408,6 +447,14 @@ export default function EventDashboard() {
 
         {/* Content */}
         <section className="flex-1 overflow-y-auto p-4 lg:p-8">
+          {isAnnouncements && (
+            <EventAnnouncements eventId={eventId} event={event} />
+          )}
+          {isMessage && (
+            <EventMessageTeam eventId={eventId} teams={teams} />
+          )}
+          {!isAnnouncements && !isMessage && (
+            <>
           {/* Tabs */}
           <div className="flex items-center gap-4 mb-6 border-b border-white/10">
             <button
@@ -419,16 +466,6 @@ export default function EventDashboard() {
               }`}
             >
               Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('submissions')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'submissions'
-                  ? 'border-cyan-400 text-cyan-200'
-                  : 'border-transparent text-white/50 hover:text-white/70'
-              }`}
-            >
-              Submissions
             </button>
             <button
               onClick={() => setActiveTab('qr')}
@@ -455,10 +492,15 @@ export default function EventDashboard() {
                   <div className="text-xs text-white/70">Total Participants</div>
                   <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
                 </button>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <button
+                  type="button"
+                  onClick={() => setShowTeamsModal(true)}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)] text-left hover:border-cyan-400/30 hover:bg-white/[0.07] transition-colors"
+                >
                   <div className="text-3xl font-bold text-white mb-1">{stats.teamsRegistered}</div>
                   <div className="text-xs text-white/70">Teams Registered</div>
-                </div>
+                  <div className="text-xs text-cyan-400/80 mt-1">Click to view all</div>
+                </button>
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
                   <div className="text-3xl font-bold text-white mb-1">{stats.shortlistedTeams}</div>
                   <div className="text-xs text-white/70">Shortlisted Teams</div>
@@ -590,77 +632,6 @@ export default function EventDashboard() {
             </div>
           )}
 
-          {activeTab === 'submissions' && (
-            <div className="space-y-6">
-              {/* Pending Submissions */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h3 className="text-sm font-semibold mb-4">Pending Submissions</h3>
-                {pendingSubmissions.length === 0 ? (
-                  <div className="text-white/40 text-sm py-8 text-center">
-                    No pending submissions
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingSubmissions.map((submission) => (
-                      <div
-                        key={submission.id}
-                        className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/10"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center text-xs font-bold text-red-400">
-                            IN
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-white">
-                              {submission.teams?.team_name || 'Team Name'}
-                            </div>
-                            <div className="text-xs text-white/60">
-                              Submitted: {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'N/A'}
-                            </div>
-                          </div>
-                        </div>
-                        <button className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors">
-                          Review
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* All Submissions */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                <h3 className="text-sm font-semibold mb-4">All Submissions</h3>
-                {submissions.length === 0 ? (
-                  <div className="text-white/40 text-sm py-8 text-center">
-                    No submissions yet
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {submissions.map((submission) => (
-                      <div
-                        key={submission.id}
-                        className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/10"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="text-sm font-semibold text-white">
-                            {submission.teams?.team_name || 'Team Name'}
-                          </div>
-                          <span className="text-xs text-white/60">
-                            {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'N/A'}
-                          </span>
-                        </div>
-                        <button className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors">
-                          View
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {activeTab === 'qr' && (
             <div className="space-y-6">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
@@ -677,6 +648,8 @@ export default function EventDashboard() {
                 </div>
               </div>
             </div>
+          )}
+            </>
           )}
         </section>
       </main>
@@ -790,6 +763,37 @@ export default function EventDashboard() {
                   </div>
                 ));
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Teams modal */}
+      {showTeamsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowTeamsModal(false)}>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold text-white">All Teams</h2>
+              <button type="button" onClick={() => setShowTeamsModal(false)} className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {teams.length === 0 ? (
+                <p className="text-white/50 text-sm py-4 text-center">No teams registered yet</p>
+              ) : (
+                teams.map((team) => {
+                  const memberCount = (team.team_members || []).filter((m) => m.status === 'accepted' || m.status === 'leader').length;
+                  return (
+                    <div key={team.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div>
+                        <p className="text-sm font-medium text-white">{team.team_name}</p>
+                        <p className="text-xs text-white/50">{memberCount} member{memberCount !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

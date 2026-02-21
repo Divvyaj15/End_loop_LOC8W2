@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { eventAPI, teamAPI, shortlistAPI, qrAPI, submissionAPI, judgeAPI } from '../services/api';
 
 export default function ManageEvent() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [event, setEvent] = useState(null);
   const [registeredTeams, setRegisteredTeams] = useState([]);
@@ -29,6 +30,7 @@ export default function ManageEvent() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [lockLoading, setLockLoading] = useState(false);
   const [selectedJudgeForAssign, setSelectedJudgeForAssign] = useState(null);
+  const [judgeScoreByTeamId, setJudgeScoreByTeamId] = useState({});
   const [settingsForm, setSettingsForm] = useState({
     title: '',
     description: '',
@@ -68,6 +70,15 @@ export default function ManageEvent() {
   useEffect(() => {
     fetchEventData();
   }, [eventId]);
+
+  // When navigating from Event Dashboard "Judging" link, open judging section
+  useEffect(() => {
+    const openSection = location.state?.openSection;
+    if (openSection === 'judging') {
+      setActiveSection('judging');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.openSection, location.pathname, navigate]);
 
   useEffect(() => {
     if (activeSection === 'judging' && eventId) {
@@ -109,10 +120,34 @@ export default function ManageEvent() {
       }
 
       if (shortlistedRes.data.success) {
-        const shortlisted = shortlistedRes.data.data || [];
-        setShortlistedTeams(shortlisted);
-        // Grand Finale Teams are the same as shortlisted for now
-        setGrandFinaleTeams(shortlisted);
+        setShortlistedTeams(shortlistedRes.data.data || []);
+      }
+
+      try {
+        const gfRes = await shortlistAPI.getGrandFinaleTeams(eventId);
+        if (gfRes.data?.success && Array.isArray(gfRes.data.data)) {
+          setGrandFinaleTeams(gfRes.data.data);
+        } else {
+          setGrandFinaleTeams([]);
+        }
+      } catch {
+        setGrandFinaleTeams([]);
+      }
+
+      try {
+        const scoresRes = await judgeAPI.getEventScores(eventId);
+        if (scoresRes.data?.success && Array.isArray(scoresRes.data.data)) {
+          const map = {};
+          scoresRes.data.data.forEach((row) => {
+            const teamId = row.team?.id;
+            if (teamId != null) map[teamId] = row.avgTotal;
+          });
+          setJudgeScoreByTeamId(map);
+        } else {
+          setJudgeScoreByTeamId({});
+        }
+      } catch {
+        setJudgeScoreByTeamId({});
       }
 
       if (submissionsRes.data.success) {
@@ -253,6 +288,26 @@ export default function ManageEvent() {
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to shortlist teams');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleMoveToGrandFinale = async () => {
+    if (!window.confirm('Move all shortlisted teams to Grand Finale? This will replace the current Grand Finale list.')) {
+      return;
+    }
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await shortlistAPI.confirmGrandFinale(eventId);
+      if (response.data.success) {
+        setSuccess(response.data.message || 'Teams moved to Grand Finale.');
+        await fetchEventData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to move teams to Grand Finale.');
     } finally {
       setActionLoading(false);
     }
@@ -402,19 +457,6 @@ export default function ManageEvent() {
             </span>
             <span className="hidden lg:inline">PPT Submissions</span>
           </button>
-          <button
-            onClick={() => setActiveSection('judging')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-              activeSection === 'judging'
-                ? 'bg-amber-500/20 border border-amber-400/50 text-amber-200'
-                : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            </span>
-            <span className="hidden lg:inline">Judging</span>
-          </button>
           <div className="pt-4 border-t border-white/10 space-y-1">
             <button
               onClick={() => navigate(`/admin/events/${eventId}`)}
@@ -522,11 +564,11 @@ export default function ManageEvent() {
                 <h2 className="text-lg font-semibold">Shortlisted Teams</h2>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={handleShortlistTeams}
-                    disabled={actionLoading}
+                    onClick={handleMoveToGrandFinale}
+                    disabled={actionLoading || shortlistedTeams.length === 0}
                     className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
                   >
-                    shortlist
+                    Move to Grand Finale
                   </button>
                   <button
                     onClick={handleSendQRs}
@@ -559,7 +601,7 @@ export default function ManageEvent() {
                           </div>
                         </div>
                         <div className="text-xs text-white/70">
-                          Score: {item.total_score !== undefined ? item.total_score : 'N/A'}
+                          Score: {judgeScoreByTeamId[(item.teams || {}).id] != null ? judgeScoreByTeamId[(item.teams || {}).id] : 'N/A'}
                         </div>
                       </div>
                     );

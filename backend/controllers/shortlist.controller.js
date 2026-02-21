@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../config/supabase.js";
-import { syncEventStatus } from "../utils/statusSync.js";
+import { supabaseAdmin }      from "../config/supabase.js";
+import { sendShortlistEmail } from "../utils/mailer.js";
 
 // ─── Helper: calculate weighted total score ───────────────────────────────────
 const calcTotal = (scores, weights) => {
@@ -52,22 +52,17 @@ export const scorePPT = async (req, res, next) => {
       }
     }
 
-    // Fetch and sync event status (to ensure we have the latest phase based on dates)
-    const { data: eventRow } = await supabaseAdmin
+    // Check event is in shortlisting phase
+    const { data: event } = await supabaseAdmin
       .from("events")
-      .select("*")
+      .select("id, status, teams_to_shortlist")
       .eq("id", eventId)
       .single();
 
-    if (!eventRow) {
+    if (!event) {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
-
-    const event = await syncEventStatus(eventRow);
-
-    // Allow scoring during registration_open, ppt_submission, and shortlisting phases
-    // This allows admin to evaluate PPTs as soon as teams submit them, even before deadlines
-    if (!["registration_open", "ppt_submission", "shortlisting"].includes(event.status)) {
+    if (event.status !== "shortlisting") {
       return res.status(400).json({ success: false, message: `Scoring not allowed in current phase: ${event.status}` });
     }
 
@@ -221,7 +216,21 @@ export const confirmShortlist = async (req, res, next) => {
         .select("user_id")
         .eq("team_id", scored.team_id);
 
-      for (const member of members || []) {
+      // Get member details for email
+      const { data: memberDetails } = await supabaseAdmin
+        .from("team_members")
+        .select("user_id, users(first_name, email)")
+        .eq("team_id", scored.team_id);
+
+      // Get team name
+      const { data: teamData } = await supabaseAdmin
+        .from("teams")
+        .select("team_name")
+        .eq("id", scored.team_id)
+        .single();
+
+      for (const member of memberDetails || []) {
+        // In-app notification
         await supabaseAdmin.from("notifications").insert({
           user_id: member.user_id,
           title:   isShortlisted ? "🎉 Congratulations! You're Shortlisted!" : "📋 Shortlisting Results",
@@ -231,6 +240,19 @@ export const confirmShortlist = async (req, res, next) => {
           type: isShortlisted ? "shortlisted" : "not_shortlisted",
           data: { eventId, teamId: scored.team_id },
         });
+
+        // Send email only to shortlisted teams
+        if (isShortlisted && member.users?.email) {
+          try {
+            await sendShortlistEmail(member.users.email, {
+              name:      member.users.first_name,
+              teamName:  teamData?.team_name || "Your Team",
+              eventName: event.title,
+            });
+          } catch (emailErr) {
+            console.error(`[EMAIL] Shortlist email failed for ${member.users.email}:`, emailErr.message);
+          }
+        }
       }
     }
 
@@ -266,6 +288,73 @@ export const getShortlistedTeams = async (req, res, next) => {
     if (error) throw error;
 
     res.status(200).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * POST /api/shortlist/confirm-grand-finale/:eventId
+ * Move current shortlisted teams to Grand Finale (replace existing grand finale list)
+ */
+export const confirmGrandFinale = async (req, res, next) => {
+  try {
+    const eventId = req.params.eventId;
+
+    const { data: shortlisted, error: listErr } = await supabaseAdmin
+      .from("shortlisted_teams")
+      .select("team_id, rank")
+      .eq("event_id", eventId)
+      .order("rank", { ascending: true });
+
+    if (listErr) throw listErr;
+    if (!shortlisted || shortlisted.length === 0) {
+      return res.status(400).json({ success: false, message: "No shortlisted teams. Shortlist teams first." });
+    }
+
+    await supabaseAdmin.from("grand_finale_teams").delete().eq("event_id", eventId);
+
+    const insertRows = shortlisted.map((row, i) => ({
+      event_id: eventId,
+      team_id:  row.team_id,
+      rank:     i + 1,
+    }));
+    const { error: insertErr } = await supabaseAdmin.from("grand_finale_teams").insert(insertRows);
+    if (insertErr) throw insertErr;
+
+    res.status(200).json({
+      success: true,
+      message: `${shortlisted.length} team(s) moved to Grand Finale.`,
+      data:    { count: shortlisted.length },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * GET /api/shortlist/grand-finale/:eventId
+ * Get Grand Finale teams for an event
+ */
+export const getGrandFinaleTeams = async (req, res, next) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("grand_finale_teams")
+      .select(`
+        rank, added_at,
+        teams (
+          id, team_name,
+          team_members ( status, users ( first_name, last_name, email ) )
+        )
+      `)
+      .eq("event_id", req.params.eventId)
+      .order("rank", { ascending: true });
+
+    if (error) throw error;
+
+    res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
     next(err);
   }

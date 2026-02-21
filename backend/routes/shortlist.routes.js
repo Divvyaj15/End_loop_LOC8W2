@@ -4,6 +4,8 @@ import {
   getLeaderboard,
   confirmShortlist,
   getShortlistedTeams,
+  confirmGrandFinale,
+  getGrandFinaleTeams,
 } from "../controllers/shortlist.controller.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { isAdmin }     from "../middleware/role.middleware.js";
@@ -15,6 +17,8 @@ const router = Router();
 router.post("/score",              verifyToken, isAdmin, validate(["eventId", "teamId", "submissionId"]), scorePPT);
 router.get("/leaderboard/:eventId", verifyToken, isAdmin, getLeaderboard);
 router.post("/confirm/:eventId",   verifyToken, isAdmin, confirmShortlist);
+router.post("/confirm-grand-finale/:eventId", verifyToken, isAdmin, confirmGrandFinale);
+router.get("/grand-finale/:eventId",         verifyToken, getGrandFinaleTeams);
 
 // ─── Public (after shortlisting) ─────────────────────────────────────────────
 router.get("/:eventId",            verifyToken, getShortlistedTeams);

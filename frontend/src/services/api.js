@@ -78,11 +78,20 @@ export const submissionAPI = {
   getSubmissionsByEvent: (eventId) => api.get(`/submissions/event/${eventId}`),
 };
 
+// Announcements API
+export const announcementAPI = {
+  create: (data) => api.post('/announcements', data),
+  getByEvent: (eventId) => api.get(`/announcements/event/${eventId}`),
+  delete: (announcementId) => api.delete(`/announcements/${announcementId}`),
+};
+
 // Shortlist API
 export const shortlistAPI = {
   getShortlistedTeams: (eventId) => api.get(`/shortlist/${eventId}`),
   getLeaderboard: (eventId) => api.get(`/shortlist/leaderboard/${eventId}`),
   confirmShortlist: (eventId) => api.post(`/shortlist/confirm/${eventId}`),
+  confirmGrandFinale: (eventId) => api.post(`/shortlist/confirm-grand-finale/${eventId}`),
+  getGrandFinaleTeams: (eventId) => api.get(`/shortlist/grand-finale/${eventId}`),
   scorePPT: (data) => api.post('/shortlist/score', data),
 };
 

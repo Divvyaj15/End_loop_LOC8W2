@@ -27,6 +27,8 @@ function App() {
         {/* Admin */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/events/:eventId" element={<EventDashboard />} />
+        <Route path="/admin/events/:eventId/announcements" element={<EventDashboard />} />
+        <Route path="/admin/events/:eventId/message" element={<EventDashboard />} />
         <Route path="/admin/events/:eventId/manage" element={<ManageEvent />} />
         <Route path="/admin/events/:eventId/submissions/evaluate" element={<AdminEvaluatePPT />} />
 

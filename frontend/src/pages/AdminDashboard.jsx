@@ -875,12 +875,6 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-semibold">Your Events</h2>
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => fetchAllEvents()}
-                      className="px-6 py-2.5 rounded-xl border border-white/30 text-sm font-medium hover:bg-white/5 transition-colors"
-                    >
-                      Manage Events
-                    </button>
                     {allEvents.length === 0 && (
                       <button
                         onClick={() => setShowCreateForm(true)}
@@ -983,15 +977,9 @@ export default function AdminDashboard() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => navigate(`/admin/events/${event.id}`)}
-                            className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-xs font-semibold hover:from-cyan-300 hover:to-cyan-500 transition-all"
+                            className="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-xs font-semibold hover:from-cyan-300 hover:to-cyan-500 transition-all"
                           >
                             View Dashboard
-                          </button>
-                          <button
-                            onClick={() => navigate(`/admin/events/${event.id}`)}
-                            className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors"
-                          >
-                            Manage
                           </button>
                         </div>
                       </div>

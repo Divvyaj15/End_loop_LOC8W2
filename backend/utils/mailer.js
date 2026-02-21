@@ -49,3 +49,24 @@ export const sendTeamInviteEmail = async (to, { inviteeName, leaderName, teamNam
     `,
   });
 };
+
+export const sendShortlistEmail = async (to, { name, teamName, eventName }) => {
+  await transporter.sendMail({
+    from:    `"End_Loop Hackathon" <${process.env.MAIL_USER}>`,
+    to,
+    subject: `🎉 You're Shortlisted! — ${eventName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+        <h2 style="color:#4F46E5;">Congratulations! 🎉</h2>
+        <p>Hi <strong>${name}</strong>,</p>
+        <p>Great news! Your team <strong>${teamName}</strong> has been shortlisted for <strong>${eventName}</strong>!</p>
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px;margin:20px 0;text-align:center;">
+          <p style="margin:0;font-size:18px;font-weight:bold;color:#16a34a;">✅ You're In!</p>
+          <p style="margin:8px 0 0;color:#15803d;">Check your dashboard for your Entry QR code and further details.</p>
+        </div>
+        <p>Please carry your Entry QR code on hackathon day for check-in.</p>
+        <p style="color:#888;font-size:12px;margin-top:24px;">Best of luck from the End_Loop team! 🚀</p>
+      </div>
+    `,
+  });
+};

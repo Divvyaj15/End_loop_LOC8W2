@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventAPI, teamAPI, shortlistAPI, qrAPI, submissionAPI } from '../services/api';
+import { eventAPI, teamAPI, shortlistAPI, qrAPI, submissionAPI, judgeAPI } from '../services/api';
 
 export default function ManageEvent() {
   const { eventId } = useParams();
@@ -15,12 +15,20 @@ export default function ManageEvent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeSection, setActiveSection] = useState('manage'); // 'manage' | 'ppt'
+  const [activeSection, setActiveSection] = useState('manage'); // 'manage' | 'ppt' | 'judging'
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsDeleting, setSettingsDeleting] = useState(false);
+  const [allJudges, setAllJudges] = useState([]);
+  const [judgeScores, setJudgeScores] = useState([]);
+  const [judgesLoading, setJudgesLoading] = useState(false);
+  const [createJudgeForm, setCreateJudgeForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
+  const [createJudgeLoading, setCreateJudgeLoading] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [lockLoading, setLockLoading] = useState(false);
+  const [selectedJudgeForAssign, setSelectedJudgeForAssign] = useState(null);
   const [settingsForm, setSettingsForm] = useState({
     title: '',
     description: '',
@@ -60,6 +68,12 @@ export default function ManageEvent() {
   useEffect(() => {
     fetchEventData();
   }, [eventId]);
+
+  useEffect(() => {
+    if (activeSection === 'judging' && eventId) {
+      fetchJudgesData();
+    }
+  }, [activeSection, eventId]);
 
   const fetchEventData = async () => {
     setLoading(true);
@@ -109,6 +123,116 @@ export default function ManageEvent() {
       setError('Failed to load event data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchJudgesData = async () => {
+    setJudgesLoading(true);
+    try {
+      const [judgesRes, scoresRes] = await Promise.all([
+        judgeAPI.getAllJudges(),
+        judgeAPI.getEventScores(eventId),
+      ]);
+      if (judgesRes.data.success) setAllJudges(judgesRes.data.data || []);
+      if (scoresRes.data.success) setJudgeScores(scoresRes.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch judges data:', err);
+    } finally {
+      setJudgesLoading(false);
+    }
+  };
+
+  const handleCreateJudge = async (e) => {
+    e.preventDefault();
+    setCreateJudgeLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await judgeAPI.createJudge(createJudgeForm);
+      if (res.data.success) {
+        setSuccess(res.data.message || 'Judge created successfully');
+        setCreateJudgeForm({ firstName: '', lastName: '', email: '', password: '' });
+        await fetchJudgesData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create judge');
+    } finally {
+      setCreateJudgeLoading(false);
+    }
+  };
+
+  const handleAssignTeams = async () => {
+    if (!selectedJudgeForAssign || allJudges.length === 0) return;
+    const teamsToAssign = shortlistedTeams.map((item) => item.teams?.id || item.team_id).filter(Boolean);
+    if (teamsToAssign.length === 0) {
+      setError('No shortlisted teams to assign');
+      return;
+    }
+    setAssignLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await judgeAPI.assignTeams(eventId, selectedJudgeForAssign.id, teamsToAssign);
+      if (res.data.success) {
+        setSuccess(res.data.message || 'Teams assigned');
+        setSelectedJudgeForAssign(null);
+        await fetchJudgesData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to assign teams');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleSplitAndAssign = async () => {
+    if (allJudges.length === 0) {
+      setError('Create at least 4 judges first');
+      return;
+    }
+    const teamsToAssign = shortlistedTeams.map((item) => item.teams?.id || item.team_id).filter(Boolean);
+    if (teamsToAssign.length === 0) {
+      setError('No shortlisted teams. Shortlist teams first.');
+      return;
+    }
+    setAssignLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const numJudges = Math.min(allJudges.length, 4);
+      const perJudge = Math.ceil(teamsToAssign.length / numJudges);
+      const judgesToUse = allJudges.slice(0, numJudges);
+      for (let i = 0; i < judgesToUse.length; i++) {
+        const chunk = teamsToAssign.slice(i * perJudge, (i + 1) * perJudge);
+        if (chunk.length > 0) {
+          await judgeAPI.assignTeams(eventId, judgesToUse[i].id, chunk);
+        }
+      }
+      setSuccess(`Split ${teamsToAssign.length} teams across ${judgesToUse.length} judges`);
+      await fetchJudgesData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to assign teams');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleLockScores = async () => {
+    if (!window.confirm('Lock all scores? Judges will no longer be able to re-score.')) return;
+    setLockLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await judgeAPI.lockScores(eventId);
+      if (res.data.success) {
+        setSuccess(res.data.message || 'Scores locked');
+        await fetchJudgesData();
+        await fetchEventData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to lock scores');
+    } finally {
+      setLockLoading(false);
     }
   };
 
@@ -275,6 +399,19 @@ export default function ManageEvent() {
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
             </span>
             <span className="hidden lg:inline">PPT Submissions</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('judging')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+              activeSection === 'judging'
+                ? 'bg-amber-500/20 border border-amber-400/50 text-amber-200'
+                : 'border border-white/20 text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            </span>
+            <span className="hidden lg:inline">Judging</span>
           </button>
           <div className="pt-4 border-t border-white/10 space-y-1">
             <button
@@ -491,6 +628,143 @@ export default function ManageEvent() {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'judging' && (
+            <div className="max-w-5xl mx-auto space-y-6">
+              {/* Create Judge */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <h2 className="text-lg font-semibold mb-4">Create Judge Account</h2>
+                <form onSubmit={handleCreateJudge} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <input
+                    type="text"
+                    placeholder="First name"
+                    value={createJudgeForm.firstName}
+                    onChange={(e) => setCreateJudgeForm((p) => ({ ...p, firstName: e.target.value }))}
+                    className="px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Last name"
+                    value={createJudgeForm.lastName}
+                    onChange={(e) => setCreateJudgeForm((p) => ({ ...p, lastName: e.target.value }))}
+                    className="px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    required
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={createJudgeForm.email}
+                    onChange={(e) => setCreateJudgeForm((p) => ({ ...p, email: e.target.value }))}
+                    className="px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={createJudgeForm.password}
+                    onChange={(e) => setCreateJudgeForm((p) => ({ ...p, password: e.target.value }))}
+                    className="px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={createJudgeLoading}
+                    className="px-4 py-2 rounded-xl bg-amber-500/80 text-white text-sm font-medium hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    {createJudgeLoading ? 'Creating...' : 'Create Judge'}
+                  </button>
+                </form>
+                <p className="text-xs text-white/50 mt-2">Create 4 judges, then assign shortlisted teams.</p>
+              </div>
+
+              {/* Assign Teams */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <h2 className="text-lg font-semibold mb-4">Assign Teams to Judges</h2>
+                {judgesLoading ? (
+                  <div className="text-white/50 py-4">Loading...</div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {allJudges.map((j) => (
+                        <button
+                          key={j.id}
+                          onClick={() => setSelectedJudgeForAssign(selectedJudgeForAssign?.id === j.id ? null : j)}
+                          className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
+                            selectedJudgeForAssign?.id === j.id
+                              ? 'bg-amber-500/30 border-amber-400 text-amber-200'
+                              : 'bg-black/40 border-white/20 text-white/70 hover:border-amber-400/60'
+                          }`}
+                        >
+                          {j.first_name} {j.last_name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAssignTeams}
+                        disabled={!selectedJudgeForAssign || shortlistedTeams.length === 0 || assignLoading}
+                        className="px-4 py-2 rounded-xl border border-amber-400/60 text-amber-200 text-sm font-medium hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Assign all shortlisted to selected judge
+                      </button>
+                      <button
+                        onClick={handleSplitAndAssign}
+                        disabled={allJudges.length === 0 || shortlistedTeams.length === 0 || assignLoading}
+                        className="px-4 py-2 rounded-xl bg-amber-500/80 text-white text-sm font-medium hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {assignLoading ? 'Assigning...' : 'Split 40 teams across 4 judges'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-white/50 mt-2">Shortlisted teams: {shortlistedTeams.length}. Split distributes teams evenly across up to 4 judges.</p>
+                  </>
+                )}
+              </div>
+
+              {/* Scores Leaderboard */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Judge Scores & Leaderboard</h2>
+                  <button
+                    onClick={handleLockScores}
+                    disabled={judgeScores.length === 0 || lockLoading}
+                    className="px-4 py-2 rounded-xl border border-red-400/60 text-red-200 text-sm font-medium hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {lockLoading ? 'Locking...' : 'Lock Scores'}
+                  </button>
+                </div>
+                {judgeScores.length === 0 ? (
+                  <div className="text-white/40 text-sm py-8 text-center">
+                    No scores yet. Judges must score their assigned teams.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {judgeScores.map((item, idx) => (
+                      <div
+                        key={item.team?.id || idx}
+                        className="p-4 rounded-xl bg-black/40 border border-white/10"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-white">
+                            #{item.rank} {item.team?.team_name}
+                          </span>
+                          <span className="text-cyan-300 font-medium">Avg: {item.avgTotal}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {item.judgeScores?.map((js, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded bg-white/10 text-white/80">
+                              {js.judge}: {js.total_score}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-white/50 mt-4">Lock scores when judging is complete. Admin manually announces winners.</p>
               </div>
             </div>
           )}

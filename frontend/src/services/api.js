@@ -97,4 +97,20 @@ export const foodQrAPI = {
   getFoodReport: (eventId) => api.get(`/food-qr/report/${eventId}`),
 };
 
+// Judges API (admin + judge)
+export const judgeAPI = {
+  // Admin
+  createJudge: (data) => api.post('/judges/create', data),
+  getAllJudges: () => api.get('/judges'),
+  getJudgesByEvent: (eventId) => api.get(`/judges/event/${eventId}`),
+  assignTeams: (eventId, judgeId, teamIds) => api.post('/judges/assign', { eventId, judgeId, teamIds }),
+  unassignTeam: (eventId, judgeId, teamId) => api.delete('/judges/unassign', { data: { eventId, judgeId, teamId } }),
+  getEventScores: (eventId) => api.get(`/judges/scores/${eventId}`),
+  lockScores: (eventId) => api.patch(`/judges/lock/${eventId}`),
+  // Judge
+  getMyEvents: () => api.get('/judges/my-events'),
+  getMyAssignedTeams: (eventId) => api.get(`/judges/my-teams/${eventId}`),
+  scoreTeam: (data) => api.post('/judges/score', data),
+};
+
 export default api;

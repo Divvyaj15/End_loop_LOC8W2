@@ -69,6 +69,27 @@ export const createJudge = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
+ * GET /api/judges
+ * Admin gets all judge accounts (for assignment dropdown)
+ */
+export const getAllJudges = async (req, res, next) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("id, first_name, last_name, email")
+      .eq("role", "judge")
+      .order("first_name");
+
+    if (error) throw error;
+
+    res.status(200).json({ success: true, data: data || [] });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+/**
  * GET /api/judges/event/:eventId
  * Admin gets all judges for an event
  */
@@ -185,6 +206,38 @@ export const unassignTeam = async (req, res, next) => {
       .eq("team_id", teamId);
 
     res.status(200).json({ success: true, message: "Team unassigned from judge" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * GET /api/judges/my-events
+ * Judge gets list of events they have team assignments for
+ */
+export const getMyEvents = async (req, res, next) => {
+  try {
+    const judgeId = req.user.id;
+
+    const { data: assignments, error } = await supabaseAdmin
+      .from("judge_assignments")
+      .select("event_id, events ( id, title, status )")
+      .eq("judge_id", judgeId);
+
+    if (error) throw error;
+
+    const seen = new Set();
+    const events = (assignments || [])
+      .filter((a) => {
+        if (!a.events) return false;
+        if (seen.has(a.events.id)) return false;
+        seen.add(a.events.id);
+        return true;
+      })
+      .map((a) => ({ id: a.events.id, title: a.events.title, status: a.events.status }));
+
+    res.status(200).json({ success: true, data: events });
   } catch (err) {
     next(err);
   }

@@ -10,6 +10,8 @@ import StudentEventDetail from './pages/StudentEventDetail';
 import StudentMyEvents from './pages/StudentMyEvents';
 import StudentPlaceholder from './pages/StudentPlaceholder';
 import StudentProfile from './pages/StudentProfile';
+import JudgeDashboard from './pages/JudgeDashboard';
+import JudgeScoreTeam from './pages/JudgeScoreTeam';
 import './App.css';
 
 function App() {
@@ -25,6 +27,10 @@ function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/events/:eventId" element={<EventDashboard />} />
         <Route path="/admin/events/:eventId/manage" element={<ManageEvent />} />
+
+        {/* Judge */}
+        <Route path="/judge/dashboard" element={<JudgeDashboard />} />
+        <Route path="/judge/events/:eventId/teams/:teamId/score" element={<JudgeScoreTeam />} />
 
         {/* Student */}
         <Route path="/student/dashboard" element={<StudentDashboard />} />

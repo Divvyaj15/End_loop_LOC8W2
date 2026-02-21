@@ -1,9 +1,11 @@
 import { Router } from "express";
 import {
   createJudge,
+  getAllJudges,
   getJudgesByEvent,
   assignTeams,
   unassignTeam,
+  getMyEvents,
   getMyAssignedTeams,
   scoreTeam,
   getEventScores,
@@ -24,6 +26,7 @@ const isJudge = (req, res, next) => {
 const router = Router();
 
 // ─── Admin only ───────────────────────────────────────────────────────────────
+router.get("/",                     verifyToken, isAdmin, getAllJudges);
 router.post("/create",              verifyToken, isAdmin, validate(["firstName", "lastName", "email", "password"]), createJudge);
 router.get("/event/:eventId",       verifyToken, isAdmin, getJudgesByEvent);
 router.post("/assign",              verifyToken, isAdmin, validate(["eventId", "judgeId", "teamIds"]), assignTeams);
@@ -32,6 +35,7 @@ router.get("/scores/:eventId",      verifyToken, isAdmin, getEventScores);
 router.patch("/lock/:eventId",      verifyToken, isAdmin, lockScores);
 
 // ─── Judge only ───────────────────────────────────────────────────────────────
+router.get("/my-events",            verifyToken, isJudge, getMyEvents);
 router.get("/my-teams/:eventId",    verifyToken, isJudge, getMyAssignedTeams);
 router.post("/score",               verifyToken, isJudge, validate(["eventId", "teamId"]), scoreTeam);
 

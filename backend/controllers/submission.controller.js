@@ -1,5 +1,5 @@
-import { supabaseAdmin }  from "../config/supabase.js";
-import { uploadImage }    from "../utils/storage.js";
+import { supabaseAdmin } from "../config/supabase.js";
+import { uploadImage } from "../utils/storage.js";
 import { syncEventStatus } from "../utils/statusSync.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,8 +32,8 @@ export const submitPPT = async (req, res, next) => {
         message: syncedEvent.status === "registration_open"
           ? "PPT submission has not started yet. Registration is still open."
           : syncedEvent.status === "shortlisting"
-          ? "PPT submission deadline has passed."
-          : `PPT submission is not allowed in current event phase: ${syncedEvent.status}`,
+            ? "PPT submission deadline has passed."
+            : `PPT submission is not allowed in current event phase: ${syncedEvent.status}`,
       });
     }
 
@@ -56,19 +56,19 @@ export const submitPPT = async (req, res, next) => {
     }
 
     // 3. Upload PPT to Supabase Storage
-    const ppt_url = await uploadImage(pptBase64, "problem_statement", `submissions/${teamId}`);
+    const ppt_url = await uploadImage(pptBase64, "ppt_submission", `${eventId}/${teamId}`);
 
     // 4. Upsert submission (insert or replace if re-uploading)
     const { data: submission, error } = await supabaseAdmin
       .from("submissions")
       .upsert(
         {
-          event_id:     eventId,
-          team_id:      teamId,
-          uploaded_by:  userId,
+          event_id: eventId,
+          team_id: teamId,
+          uploaded_by: userId,
           ppt_url,
           submitted_at: new Date().toISOString(),
-          updated_at:   new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
         { onConflict: "event_id,team_id" }
       )
@@ -80,7 +80,7 @@ export const submitPPT = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: "PPT submitted successfully!",
-      data:    submission,
+      data: submission,
     });
   } catch (err) {
     next(err);
@@ -123,8 +123,8 @@ export const getSubmissionsByEvent = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      count:   submissions.length,
-      data:    submissions,
+      count: submissions.length,
+      data: submissions,
     });
   } catch (err) {
     next(err);
@@ -187,7 +187,7 @@ export const getProblemStatement = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        problem_statement_url:  syncedEvent.problem_statement_url,
+        problem_statement_url: syncedEvent.problem_statement_url,
         ppt_submission_deadline: syncedEvent.ppt_submission_deadline,
       },
     });

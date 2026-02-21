@@ -47,7 +47,7 @@ const IconLogout = ({ className }) => (
     </svg>
 );
 
-const IconFilePPT = ({ className }) => (
+const IconFilePDF = ({ className }) => (
     <svg className={className} fill="currentColor" viewBox="0 0 24 24">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#94A3B8" opacity="0.2" />
         <path d="M14 2v6h6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -106,8 +106,8 @@ export default function StudentEventDashboard() {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (!file.name.endsWith('.pptx') && !file.name.endsWith('.ppt')) {
-            setUploadMessage({ text: 'Only .pptx or .ppt files are allowed', type: 'error' });
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            setUploadMessage({ text: 'Only .pdf files are allowed', type: 'error' });
             return;
         }
         if (file.size > 20 * 1024 * 1024) {
@@ -125,7 +125,7 @@ export default function StudentEventDashboard() {
 
     const handleSubmit = async () => {
         if (!pptFileBase64) {
-            setUploadMessage({ text: 'Please select a PPT file', type: 'error' });
+            setUploadMessage({ text: 'Please select a PDF file', type: 'error' });
             return;
         }
 
@@ -140,7 +140,7 @@ export default function StudentEventDashboard() {
                     pptBase64: pptFileBase64
                 });
                 if (res.data?.success) {
-                    setUploadMessage({ text: 'PPT submitted successfully!', type: 'success' });
+                    setUploadMessage({ text: 'PDF submitted successfully!', type: 'success' });
                 }
             } else if (event.status === 'hackathon_active') {
                 if (!githubLink.trim()) {
@@ -421,7 +421,7 @@ export default function StudentEventDashboard() {
                                                 <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 md:p-8 backdrop-blur-md shadow-lg relative overflow-hidden group">
                                                     <div className="flex justify-between items-center mb-6">
                                                         <h3 className="text-xl font-semibold text-white">
-                                                            {event.status === 'ppt_submission' ? 'Phase 1: PPT Submission' : 'Final Project Submission'}
+                                                            {event.status === 'ppt_submission' ? 'Phase 1: PDF Submission' : 'Final Project Submission'}
                                                         </h3>
                                                         {uploadMessage.text && (
                                                             <span className={`text-sm px-3 py-1 rounded-full ${uploadMessage.type === 'error' ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
@@ -438,7 +438,7 @@ export default function StudentEventDashboard() {
                                                                     <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                                                 </div>
                                                                 <h4 className="text-lg font-medium text-emerald-400 mb-1">Project Submitted Successfully</h4>
-                                                                <p className="text-sm text-emerald-400/70 mb-4 cursor-pointer" onClick={() => window.open(existingSubmission.ppt_url)}>View Submitted PPT Document</p>
+                                                                <p className="text-sm text-emerald-400/70 mb-4 cursor-pointer" onClick={() => window.open(existingSubmission.ppt_url)}>View Submitted PDF Document</p>
                                                             </div>
                                                         ) : (
                                                             <div
@@ -450,19 +450,19 @@ export default function StudentEventDashboard() {
                                                                     className="hidden"
                                                                     ref={fileInputRef}
                                                                     onChange={handleFileChange}
-                                                                    accept=".ppt,.pptx"
+                                                                    accept=".pdf"
                                                                     disabled={!isLeader || isSubmitting}
                                                                 />
-                                                                <IconFilePPT className="w-12 h-12 text-blue-400 mb-3 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                                                                <IconFilePDF className="w-12 h-12 text-blue-400 mb-3 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
                                                                 <div className="text-lg text-white mb-1">
                                                                     {pptFileName ? (
                                                                         <span className="text-emerald-400 font-medium">{pptFileName}</span>
                                                                     ) : (
-                                                                        <span className="font-semibold">{isLeader ? (existingSubmission ? 'Select new .pptx file to update' : 'Drop your .pptx file here or click to browse') : 'PPT File Area'}</span>
+                                                                        <span className="font-semibold">{isLeader ? (existingSubmission ? 'Select new .pdf file to update' : 'Drop your .pdf file here or click to browse') : 'PDF File Area'}</span>
                                                                     )}
                                                                 </div>
                                                                 <div className="text-sm text-white/50">
-                                                                    Supported formats: .ppt, .pptx (Max 20MB)
+                                                                    Supported formats: .pdf (Max 20MB)
                                                                 </div>
                                                             </div>
                                                         )}

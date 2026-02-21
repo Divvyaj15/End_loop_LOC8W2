@@ -48,7 +48,7 @@ export default function AdminEvaluatePPT() {
     if (eventId && location.state?.submissionId) {
       fetchSubmission();
     } else {
-      setError('No submission data. Go back and click Evaluate PPT.');
+      setError('No submission data. Go back and click Evaluate PDF.');
     }
   }, [eventId, submissionFromState]);
 
@@ -275,7 +275,7 @@ export default function AdminEvaluatePPT() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500/80 text-white text-sm font-medium hover:bg-cyan-500 transition-colors"
               >
-                View PPT
+                View PDF
               </a>
             </div>
           </div>

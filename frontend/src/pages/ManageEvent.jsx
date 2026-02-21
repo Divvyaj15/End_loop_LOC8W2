@@ -361,6 +361,48 @@ export default function ManageEvent() {
     }
   };
 
+  const handleDownloadCSV = () => {
+    if (shortlistedTeams.length === 0) return;
+
+    const headers = ['Rank', 'Team Name', 'Members', 'Emails', 'Score'];
+
+    const rows = shortlistedTeams.map(item => {
+      const team = item.teams || {};
+      const rank = item.rank || '';
+      const teamName = team.team_name || `Team ${rank}`;
+
+      let membersStr = 'N/A';
+      let emailsStr = 'N/A';
+
+      if (team.team_members && Array.isArray(team.team_members)) {
+        const acceptedMembers = team.team_members.filter(m => m.status === 'accepted' || m.status === 'leader');
+        membersStr = acceptedMembers.map(m => m.users ? `${m.users.first_name} ${m.users.last_name}` : 'Unknown').join('; ');
+        emailsStr = acceptedMembers.map(m => m.users?.email || 'Unknown').join('; ');
+      }
+
+      const score = judgeScoreByTeamId[team.id] != null ? judgeScoreByTeamId[team.id] : 'N/A';
+
+      return [
+        rank,
+        `"${String(teamName).replace(/"/g, '""')}"`,
+        `"${membersStr.replace(/"/g, '""')}"`,
+        `"${emailsStr.replace(/"/g, '""')}"`,
+        score
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `shortlisted-teams-${eventId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getTeamMembers = (team) => {
     if (!team.team_members || !Array.isArray(team.team_members)) return 'N/A';
     const members = team.team_members
@@ -482,7 +524,7 @@ export default function ManageEvent() {
             <span className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
             </span>
-            <span className="hidden lg:inline">PPT Submissions</span>
+            <span className="hidden lg:inline">PDF Submissions</span>
           </button>
           <div className="pt-4 border-t border-white/10 space-y-1">
             <button
@@ -591,6 +633,13 @@ export default function ManageEvent() {
                   <h2 className="text-lg font-semibold">Shortlisted Teams</h2>
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={handleDownloadCSV}
+                      disabled={shortlistedTeams.length === 0}
+                      className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
+                    >
+                      Download CSV
+                    </button>
+                    <button
                       onClick={handleGenerateCertificates}
                       disabled={actionLoading || shortlistedTeams.length === 0}
                       className="px-4 py-2 rounded-xl border border-white/30 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-60"
@@ -678,7 +727,7 @@ export default function ManageEvent() {
             <div className="max-w-5xl mx-auto space-y-6">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  📄 PPT Submissions
+                  📄 PDF Submissions
                 </h2>
                 {submissions.length === 0 ? (
                   <div className="text-white/40 text-sm py-8 text-center">
@@ -701,7 +750,7 @@ export default function ManageEvent() {
                           </p>
                         </div>
                         <span className="text-xs text-cyan-300 border border-cyan-500/40 rounded-full px-3 py-1">
-                          Evaluate PPT
+                          Evaluate PDF
                         </span>
                       </button>
                     ))}
@@ -903,7 +952,7 @@ export default function ManageEvent() {
                     <input type="date" value={settingsForm.registrationDeadline} onChange={(e) => handleSettingsChange('registrationDeadline', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs text-white/60 mb-1">PPT submission deadline</label>
+                    <label className="block text-xs text-white/60 mb-1">PDF submission deadline</label>
                     <input type="date" value={settingsForm.pptSubmissionDeadline} onChange={(e) => handleSettingsChange('pptSubmissionDeadline', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white text-sm focus:border-cyan-400/60 focus:outline-none" />
                   </div>
                   <div>
@@ -929,7 +978,7 @@ export default function ManageEvent() {
                         : settingsForm.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                     </div>
                     <p className="text-[11px] text-white/50 mt-1.5">
-                      Status is set automatically from event dates (registration deadline, PPT deadline, start/end). To delete this event, mark as Draft below and save first.
+                      Status is set automatically from event dates (registration deadline, PDF deadline, start/end). To delete this event, mark as Draft below and save first.
                     </p>
                     {event?.status !== 'draft' && (
                       <label className="mt-2 flex items-center gap-2 text-xs text-white/70 cursor-pointer">

@@ -38,7 +38,7 @@ export default function EventDashboard() {
     totalParticipants: 0,
     teamsRegistered: 0,
     shortlistedTeams: 0,
-    pptSubmissions: 0,
+    pdfSubmissions: 0,
   });
   const [qrStats, setQrStats] = useState({
     entriesScanned: 0,
@@ -111,7 +111,7 @@ export default function EventDashboard() {
         totalParticipants,
         teamsRegistered: teamsData.length,
         shortlistedTeams: shortlistedData.length,
-        pptSubmissions: submissionsData.length,
+        pdfSubmissions: submissionsData.length,
       });
 
       // Set QR stats (entriesScanned = total individual scans; meals from food report)
@@ -404,8 +404,8 @@ export default function EventDashboard() {
             <button
               onClick={handleScanQRClick}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${isEventDay(event)
-                  ? 'bg-cyan-500/90 text-white hover:bg-cyan-400 shadow-[0_4px_20px_rgba(34,211,238,0.25)]'
-                  : 'border border-white/30 text-white/70 hover:bg-white/5'
+                ? 'bg-cyan-500/90 text-white hover:bg-cyan-400 shadow-[0_4px_20px_rgba(34,211,238,0.25)]'
+                : 'border border-white/30 text-white/70 hover:bg-white/5'
                 }`}
             >
               Scan QRs
@@ -456,8 +456,8 @@ export default function EventDashboard() {
                 <button
                   onClick={() => setActiveTab('analytics')}
                   className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'analytics'
-                      ? 'border-cyan-400 text-cyan-200'
-                      : 'border-transparent text-white/50 hover:text-white/70'
+                    ? 'border-cyan-400 text-cyan-200'
+                    : 'border-transparent text-white/50 hover:text-white/70'
                     }`}
                 >
                   Analytics
@@ -465,8 +465,8 @@ export default function EventDashboard() {
                 <button
                   onClick={() => setActiveTab('qr')}
                   className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'qr'
-                      ? 'border-cyan-400 text-cyan-200'
-                      : 'border-transparent text-white/50 hover:text-white/70'
+                    ? 'border-cyan-400 text-cyan-200'
+                    : 'border-transparent text-white/50 hover:text-white/70'
                     }`}
                 >
                   QR Codes
@@ -500,8 +500,8 @@ export default function EventDashboard() {
                       <div className="text-xs text-white/70">Shortlisted Teams</div>
                     </div>
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-                      <div className="text-3xl font-bold text-white mb-1">{stats.pptSubmissions}</div>
-                      <div className="text-xs text-white/70">PPT Submissions</div>
+                      <div className="text-3xl font-bold text-white mb-1">{stats.pdfSubmissions}</div>
+                      <div className="text-xs text-white/70">PDF Submissions</div>
                     </div>
                   </div>
 
@@ -555,13 +555,13 @@ export default function EventDashboard() {
                           { label: 'Participants', value: stats.totalParticipants, color: 'cyan' },
                           { label: 'Teams', value: stats.teamsRegistered, color: 'purple' },
                           { label: 'Shortlisted Teams', value: stats.shortlistedTeams, color: 'pink' },
-                          { label: 'Submissions', value: stats.pptSubmissions, color: 'emerald' },
+                          { label: 'Submissions', value: stats.pdfSubmissions, color: 'emerald' },
                         ].map((item) => {
                           const maxValue = Math.max(
                             stats.totalParticipants,
                             stats.teamsRegistered,
                             stats.shortlistedTeams,
-                            stats.pptSubmissions,
+                            stats.pdfSubmissions,
                             1
                           );
                           const percentage = (item.value / maxValue) * 100;

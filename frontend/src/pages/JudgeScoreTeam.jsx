@@ -75,7 +75,7 @@ export default function JudgeScoreTeam() {
         }
 
         // Fetch submission links for judges.
-        // Priority: hackathon submissions (ppt + github + demo video), fallback to PPT-only submission.
+        // Priority: hackathon submissions (pdf + github + demo video), fallback to Phase 1 submission.
         try {
           let teamSubmission = null;
 
@@ -114,10 +114,10 @@ export default function JudgeScoreTeam() {
     const { innovationWeight, feasibilityWeight, technicalDepthWeight, presentationClarityWeight, socialImpactWeight } = scoreForm;
     const total =
       (scoreForm.innovation * innovationWeight +
-       scoreForm.feasibility * feasibilityWeight +
-       scoreForm.technicalDepth * technicalDepthWeight +
-       scoreForm.presentationClarity * presentationClarityWeight +
-       scoreForm.socialImpact * socialImpactWeight) / 100;
+        scoreForm.feasibility * feasibilityWeight +
+        scoreForm.technicalDepth * technicalDepthWeight +
+        scoreForm.presentationClarity * presentationClarityWeight +
+        scoreForm.socialImpact * socialImpactWeight) / 100;
     return Math.round(total * 100) / 100;
   };
 
@@ -253,7 +253,7 @@ export default function JudgeScoreTeam() {
                   rel="noopener noreferrer"
                   className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-colors"
                 >
-                  View PPT
+                  View PDF
                 </a>
               )}
               {submission?.github_link ? (
@@ -299,7 +299,7 @@ export default function JudgeScoreTeam() {
         {/* Scoring Form */}
         <form onSubmit={handleSubmit} className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
           <h2 className="text-lg font-semibold mb-6 text-white/90">Enter Marks:</h2>
-          
+
           {team.locked && (
             <div className="mb-4 bg-amber-500/15 border border-amber-400/60 text-amber-100 text-sm px-4 py-3 rounded-xl">
               ⚠️ Scoring has been locked. You cannot modify scores.

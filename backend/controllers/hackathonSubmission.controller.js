@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../config/supabase.js";
-import { uploadPPT }     from "../utils/storage.js";
+import { uploadHackathonPPT } from "../utils/storage.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
@@ -70,22 +70,22 @@ export const submitHackathonProject = async (req, res, next) => {
     }
 
     // 5. Upload PPT
-    const ppt_url = await uploadPPT(pptBase64, `hackathon/${eventId}/${teamId}`);
+    const ppt_url = await uploadHackathonPPT(pptBase64, `${eventId}/${teamId}`);
 
     // 6. Upsert submission
     const { data: submission, error } = await supabaseAdmin
       .from("hackathon_submissions")
       .upsert(
         {
-          event_id:        eventId,
-          team_id:         teamId,
-          submitted_by:    userId,
+          event_id: eventId,
+          team_id: teamId,
+          submitted_by: userId,
           ppt_url,
-          github_link:     githubLink,
+          github_link: githubLink,
           demo_video_link: demoVideoLink || null,
-          description:     description   || null,
-          submitted_at:    new Date().toISOString(),
-          updated_at:      new Date().toISOString(),
+          description: description || null,
+          submitted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
         { onConflict: "event_id,team_id" }
       )
@@ -97,7 +97,7 @@ export const submitHackathonProject = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: existing ? "Submission updated successfully!" : "Project submitted successfully!",
-      data:    submission,
+      data: submission,
     });
   } catch (err) {
     next(err);
@@ -136,7 +136,7 @@ export const getTeamHackathonSubmission = async (req, res, next) => {
 export const getSubmissionsForJudge = async (req, res, next) => {
   try {
     const { eventId } = req.params;
-    const judgeId     = req.user.id;
+    const judgeId = req.user.id;
 
     // Get judge's assigned teams
     const { data: assignments } = await supabaseAdmin
@@ -177,7 +177,7 @@ export const getSubmissionsForJudge = async (req, res, next) => {
 
     const result = (data || []).map((sub) => ({
       ...sub,
-      score:  scoresMap[sub.team_id] || null,
+      score: scoresMap[sub.team_id] || null,
       scored: !!scoresMap[sub.team_id],
     }));
 

@@ -65,7 +65,8 @@ export default function Register() {
       });
 
       if (response.data.success) {
-        setTempToken(response.data.data.token);
+        // backend returns tempToken tied to pending_registrations
+        setTempToken(response.data.data.tempToken);
         setSuccess('OTP sent to your email!');
         setStep(2);
       }
@@ -94,6 +95,8 @@ export default function Register() {
       const response = await authAPI.verifyOTP(formData.email, otp);
 
       if (response.data.success) {
+        // backend returns a new tempToken tied to docs step
+        setTempToken(response.data.data.tempToken);
         setSuccess('OTP verified! Please complete your profile.');
         setStep(3);
       }
@@ -124,13 +127,11 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await authAPI.registerComplete(
-        {
-          collegeIdBase64,
-          selfieBase64,
-        },
-        tempToken
-      );
+      const response = await authAPI.registerComplete({
+        tempToken,
+        collegeIdBase64,
+        selfieBase64,
+      });
 
       if (response.data.success) {
         setSuccess('Registration successful! Redirecting to login...');

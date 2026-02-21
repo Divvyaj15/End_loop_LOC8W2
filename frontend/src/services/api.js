@@ -49,11 +49,20 @@ export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   registerBasic: (data) => api.post('/auth/register-basic', data),
   verifyOTP: (email, otp) => api.post('/auth/verify-otp', { email, otp }),
-  registerComplete: (data, token) => 
-    api.post('/auth/register-complete', data, {
-      headers: { Authorization: `Bearer ${token}` },
-    }),
+  // registerComplete now expects tempToken in the body (no auth header)
+  registerComplete: (data) => api.post('/auth/register-complete', data),
   getMe: () => api.get('/auth/me'),
+};
+
+// Events API (admin)
+export const eventAPI = {
+  createEvent: (data) => api.post('/events', data),
+  getAdminEvents: () => api.get('/events/admin/all'),
+  getEventById: (eventId) => api.get(`/events/${eventId}`),
+  updateEvent: (eventId, data) => api.patch(`/events/${eventId}`, data),
+  deleteEvent: (eventId) => api.delete(`/events/${eventId}`),
+  uploadProblemStatement: (eventId, pdfBase64) =>
+    api.post(`/events/${eventId}/problem-statement`, { pdfBase64 }),
 };
 
 export default api;
